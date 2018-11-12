@@ -49,6 +49,7 @@ object Cli {
     mode: Mode.Type,
     osate: Option[String],
     projects: ISZ[String],
+    main: Option[String],
     output: Option[String]
   ) extends PhantomTopOption
 }
@@ -88,12 +89,14 @@ import Cli._
           |-e, --osate              OSATE installation path (expects a path)
           |-p, --projects           OSATE project folders (expects path strings; default
           |                           is ".")
+          |-a, --main-package       AADl main package file (expects a string)
           |-o, --output             AIR output file path (expects a path)
           |-h, --help               Display this information""".render
 
     var mode: Mode.Type = Mode.Json
     var osate: Option[String] = None[String]()
     var projects: ISZ[String] = ISZ(".")
+    var main: Option[String] = None[String]()
     var output: Option[String] = None[String]()
     var j = i
     var isOption = T
@@ -121,6 +124,12 @@ import Cli._
              case Some(v) => projects = v
              case _ => return None()
            }
+         } else if (arg == "-a" || arg == "--main-package") {
+           val o: Option[Option[String]] = parseString(args, j + 1)
+           o match {
+             case Some(v) => main = v
+             case _ => return None()
+           }
          } else if (arg == "-o" || arg == "--output") {
            val o: Option[Option[String]] = parsePath(args, j + 1)
            o match {
@@ -136,7 +145,7 @@ import Cli._
         isOption = F
       }
     }
-    return Some(PhantomOption(help, parseArguments(args, j), mode, osate, projects, output))
+    return Some(PhantomOption(help, parseArguments(args, j), mode, osate, projects, main, output))
   }
 
   def parseArguments(args: ISZ[String], i: Z): ISZ[String] = {

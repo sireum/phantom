@@ -47,6 +47,10 @@
         tpe = Type.Path(multiple = T, default = Some(".")),
         description = "OSATE project folders"
       ),
+      Opt (name = "main", longKey = "main-package", shortKey = Some('a'),
+        tpe = Type.Str(sep = None(), default = None()),
+        description = "AADl main package file"
+      ),
       Opt (name = "output", longKey = "output", shortKey = Some('o'),
         tpe = Type.Path(multiple = F, default = None()),
         description = "AIR output file path")

@@ -26,7 +26,9 @@
 package org.sireum
 
 import java.io.File
+
 import ammonite.ops._
+import org.sireum.Cli.Mode
 import org.sireum.{Some => SSome}
 
 object Phantom extends scala.App {
@@ -37,6 +39,10 @@ object Phantom extends scala.App {
   val osateMacUrl = s"$osateUrlPrefix-macosx.cocoa.x86_64.tar.gz"
   val osateWinUrl = s"$osateUrlPrefix-win32.win32.x86_64.zip"
   val phantomDir = Path(new File(System.getProperty("user.home"), s".sireum/phantom").getAbsolutePath)
+  val sireumUpdateSite = "https://raw.githubusercontent.com/sireum/osate-plugin-update-site/master/org.sireum.aadl.osate.update.site/site.xml"
+  val cliUpdateSite = "https://raw.githubusercontent.com/sireum/osate-plugin-update-site/master/org.sireum.aadl.osate.cli.update.site/site.xml"
+  val sireumFeatureID = "org.sireum.aadl.osate.feature.feature.group"
+  val cliFeatureID = "org.sireum.aadl.osate.cli.feature.feature.group"
   val defaultOsateDir = phantomDir / s"osate-$osateVersion"
 
   Cli(File.pathSeparatorChar).parsePhantom(ISZ(args.toSeq.map(s => s: String):_ *), 0) match {
@@ -47,11 +53,62 @@ object Phantom extends scala.App {
   def phantom(o: Cli.PhantomOption): Unit = {
     // TODO: check CLI args
 
+
+    val outMode = o.mode
+
     val osateDir = o.osate match {
       case SSome(d) => Path(new File(d.value).getAbsolutePath)
       case _ => installOsate(); defaultOsateDir
     }
 
+    assert(o.projects.size>0, "Must provide a project folder path")
+    val projects = o.projects.map { it =>
+          Path(new File(it.value))
+    }
+
+    val mainPackage : String = if(o.main.nonEmpty) {
+      o.main.get
+    } else {
+      projects(0).toIO.list().head
+    }
+
+    assert(o.args.size == 1, "Must provice exactly one system implementation")
+    val impl : String = o.args(0)
+
+
+    val outExt = if(o.mode == Mode.Json) String(".json")  else String(".msgpack")
+
+    val outDir: Path = if(o.output.nonEmpty) {
+      Path(new File(o.output.get.value))
+    } else {
+      Path(projects(0) + impl.value + outExt)
+    }
+
+
+
+
+    val osateExe = if(scala.util.Properties.isMac) {
+      defaultOsateDir / 'MacOS
+    } else if(scala.util.Properties.isLinux) {
+      defaultOsateDir
+    } else {
+      defaultOsateDir
+    }
+
+    val installedPlugins : CommandResult = %%(osateExe / 'osate, "-nosplash",
+      "-console",
+      "-consoleLog",
+      "-application",
+      "org.eclipse.equinox.p2.director",
+      "-listInstalledRoots")(defaultOsateDir)
+    val isInstalled = installedPlugins.out.lines.exists(
+      _.startsWith(cliFeatureID))
+
+    if(!isInstalled) {
+      installPlugins(osateExe)
+    }
+
+    execute(osateExe, projects(0), mainPackage, impl, outDir)
   }
 
   def installOsate(): Unit = {
@@ -64,7 +121,7 @@ object Phantom extends scala.App {
       println("Downloading OSATE2 ...")
       %('curl, "-Lo", osateBundle, osateMacUrl)(phantomDir)
       %('tar, 'xfz, osateBundle)(phantomDir)
-      mv(phantomDir / "osate2.app" / 'Contents / 'Eclipse, defaultOsateDir)
+      mv(phantomDir / "osate2.app" / 'Contents, defaultOsateDir)
       rm ! phantomDir / "osate2.app"
       rm ! phantomDir / osateBundle
     } else if (scala.util.Properties.isLinux) {
@@ -83,6 +140,35 @@ object Phantom extends scala.App {
       Console.err.println("Phantom only supports macOS, Linux, or Windows")
       System.exit(-1)
     }
+  }
+
+  def installPlugins(osateExe : Path):Unit = {
+    %(osateExe / 'osate, "-nosplash",
+      "-console",
+      "-consoleLog",
+      "-application",
+      "org.eclipse.equinox.p2.director",
+      "-repository", sireumUpdateSite, "-installIU", sireumFeatureID
+    )(defaultOsateDir)
+
+    %(osateExe / 'osate, "-nosplash",
+      "-console",
+      "-consoleLog",
+      "-application",
+      "org.eclipse.equinox.p2.director",
+      "-repository", cliUpdateSite, "-installIU", cliFeatureID
+    )(defaultOsateDir)
+  }
+
+  def execute(osateExe : Path, project : Path, mainPackage: String, impl: String, out: Path):Unit = {
+    %(osateExe / 'osate, "-nosplash",
+      "-console",
+      "-consoleLog",
+      "-application",
+      "org.sireum.aadl.osate.cli",
+      project.toString(), mainPackage.toString(), impl.value, out.toString()
+    )(defaultOsateDir)
+
   }
 
 }
