@@ -72,7 +72,7 @@ object Phantom extends scala.App {
       projects(0).toIO.list().head
     }
 
-    assert(o.args.size == 1, "Must provice exactly one system implementation")
+    assert(o.args.size == 1, "Must provide exactly one system implementation")
     val impl : String = o.args(0)
 
 
@@ -83,8 +83,6 @@ object Phantom extends scala.App {
     } else {
       Path(projects(0) + impl.value + outExt)
     }
-
-
 
 
     val osateExe = if(scala.util.Properties.isMac) {
@@ -107,7 +105,6 @@ object Phantom extends scala.App {
     if(!isInstalled) {
       installPlugins(osateExe)
     }
-
     execute(osateExe, projects(0), mainPackage, impl, outDir)
   }
 
@@ -119,6 +116,7 @@ object Phantom extends scala.App {
     val osateBundle = "osate.bundle"
     if (scala.util.Properties.isMac) {
       println("Downloading OSATE2 ...")
+      mkdir ! phantomDir
       %('curl, "-Lo", osateBundle, osateMacUrl)(phantomDir)
       %('tar, 'xfz, osateBundle)(phantomDir)
       mv(phantomDir / "osate2.app" / 'Contents, defaultOsateDir)
