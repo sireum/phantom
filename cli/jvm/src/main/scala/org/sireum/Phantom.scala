@@ -47,23 +47,25 @@ object Phantom extends scala.App {
 
   Cli(File.pathSeparatorChar).parsePhantom(ISZ(args.toSeq.map(s => s: String):_ *), 0) match {
     case Some(o: Cli.PhantomOption) => phantom(o)
-    case _ =>
+    case _ => 1
   }
 
-  def phantom(o: Cli.PhantomOption): Unit = {
-    // TODO: check CLI args
-
-
-    val outMode = o.mode
-
-    val osateDir = o.osate match {
-      case SSome(d) => Path(new File(d.value).getAbsolutePath)
-      case _ => installOsate(); defaultOsateDir
+  def phantom(o: Cli.PhantomOption): Int = {
+    o.args.size match {
+      case z"0" => println(o.help); return 0
+      case z"1" =>
+      case _ =>
+        Console.err.println("Too many arguments provided. Expecting a single system implementation")
+        return 1
     }
 
-    assert(o.projects.size>0, "Must provide a project folder path")
     val projects = o.projects.map { it =>
-          Path(new File(it.value))
+      val f = new File(it.value)
+      if(!f.exists()) {
+        Console.err.println(s"${it.value} is not a valid directory")
+        return 1
+      }
+      Path(f.getAbsolutePath)
     }
 
     val mainPackage : String = if(o.main.nonEmpty) {
@@ -72,40 +74,57 @@ object Phantom extends scala.App {
       projects(0).toIO.list().head
     }
 
-    assert(o.args.size == 1, "Must provide exactly one system implementation")
     val impl : String = o.args(0)
 
-
-    val outExt = if(o.mode == Mode.Json) String(".json")  else String(".msgpack")
-
-    val outDir: Path = if(o.output.nonEmpty) {
-      Path(new File(o.output.get.value))
+    val outFile: Path = if(o.output.nonEmpty) {
+      val f = new File(o.output.get.value)
+      if(f.exists() && f.isDirectory) {
+        Console.err.println(s"${f.getAbsolutePath} is a directory.  Should be the name for the generated ${o.mode} file.")
+        return 1
+      }
+      Path(f)
     } else {
+      val outExt = if(o.mode == Mode.Json) String(".json")  else String(".msgpack")
       Path(projects(0) + impl.value + outExt)
     }
 
-
-    val osateExe = if(scala.util.Properties.isMac) {
-      defaultOsateDir / 'MacOS
-    } else if(scala.util.Properties.isLinux) {
-      defaultOsateDir
-    } else {
-      defaultOsateDir
+     val osateDir = o.osate match {
+      case SSome(d) => Path(new File(d.value).getAbsolutePath)
+      case _ => installOsate(); defaultOsateDir
     }
 
-    val installedPlugins : CommandResult = %%(osateExe / 'osate, "-nosplash",
+    val osateExe: Path = if(scala.util.Properties.isMac) {
+      osateDir / 'MacOS / 'osate
+    } else if(scala.util.Properties.isLinux) {
+      osateDir / 'osate
+    } else if(scala.util.Properties.isWin) {
+      osateDir / "osate.exe"
+    } else {
+      Console.err.println("Phantom only supports macOS, Linux, or Windows")
+      return 1
+    }
+
+    if(!osateExe.toIO.exists){
+      Console.err.println(s"${osateExe.toIO.getAbsolutePath} does not exist")
+      return 1
+    }
+
+    val installedPlugins : CommandResult = %%(osateExe, "-nosplash",
       "-console",
       "-consoleLog",
       "-application",
       "org.eclipse.equinox.p2.director",
-      "-listInstalledRoots")(defaultOsateDir)
-    val isInstalled = installedPlugins.out.lines.exists(
-      _.startsWith(cliFeatureID))
+      "-listInstalledRoots")(osateDir)
+
+    val isInstalled = installedPlugins.out.lines.exists(_.startsWith(cliFeatureID))
 
     if(!isInstalled) {
       installPlugins(osateExe)
     }
-    execute(osateExe, projects(0), mainPackage, impl, outDir)
+
+    execute(osateExe, projects(0), mainPackage, impl, outFile)
+
+    0
   }
 
   def installOsate(): Unit = {
@@ -141,7 +160,7 @@ object Phantom extends scala.App {
   }
 
   def installPlugins(osateExe : Path):Unit = {
-    %(osateExe / 'osate, "-nosplash",
+    %(osateExe, "-nosplash",
       "-console",
       "-consoleLog",
       "-application",
@@ -149,7 +168,7 @@ object Phantom extends scala.App {
       "-repository", sireumUpdateSite, "-installIU", sireumFeatureID
     )(defaultOsateDir)
 
-    %(osateExe / 'osate, "-nosplash",
+    %(osateExe, "-nosplash",
       "-console",
       "-consoleLog",
       "-application",
@@ -159,14 +178,12 @@ object Phantom extends scala.App {
   }
 
   def execute(osateExe : Path, project : Path, mainPackage: String, impl: String, out: Path):Unit = {
-    %(osateExe / 'osate, "-nosplash",
+    %(osateExe, "-nosplash",
       "-console",
       "-consoleLog",
       "-application",
       "org.sireum.aadl.osate.cli",
       project.toString(), mainPackage.toString(), impl.value, out.toString()
     )(defaultOsateDir)
-
   }
-
 }
