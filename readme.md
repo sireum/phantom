@@ -17,3 +17,7 @@ cd osate-headless
 ## Usage
 
 Type `phantom` (or `phantom.bat` under Windows) to view Phantom's command line options
+
+## Known Issues
+
+Java 11 is not supported by OSATE version 2.3.6 and below.  Refer to the [OSATE release notes](http://osate.org/osate-releases.html) for the current support status.
