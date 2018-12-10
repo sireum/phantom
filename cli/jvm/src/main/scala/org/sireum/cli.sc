@@ -36,7 +36,7 @@
     usage = "<option>* <system-name>",
     opts = ISZ(
       Opt (name = "mode", longKey = "mode", shortKey = Some('m'),
-        tpe = Type.Choice(name = "mode", sep = None(), elements = ISZ("json", "msgpack")),
+        tpe = Type.Choice(name = "mode", sep = None(), elements = ISZ("jsonCompact", "json", "msgpack")),
         description = "Serialization method"
       ),
       Opt (name = "osate", longKey = "osate", shortKey = Some('e'),
@@ -49,7 +49,7 @@
       ),
       Opt (name = "main", longKey = "main-package", shortKey = Some('a'),
         tpe = Type.Str(sep = None(), default = None()),
-        description = "AADl main package file"
+        description = "AADL main package file"
       ),
       Opt (name = "output", longKey = "output", shortKey = Some('o'),
         tpe = Type.Path(multiple = F, default = None()),

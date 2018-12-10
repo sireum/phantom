@@ -39,6 +39,7 @@ object Cli {
   @datatype class HelpOption extends PhantomTopOption
 
   @enum object Mode {
+    'JsonCompact
     'Json
     'Msgpack
   }
@@ -60,17 +61,18 @@ import Cli._
 
   def parseModeH(arg: String): Option[Mode.Type] = {
     arg.native match {
+      case "jsonCompact" => return Some(Mode.JsonCompact)
       case "json" => return Some(Mode.Json)
       case "msgpack" => return Some(Mode.Msgpack)
       case s =>
-        eprintln(s"Expecting one of the following: { json, msgpack }, but found '$s'.")
+        eprintln(s"Expecting one of the following: { jsonCompact, json, msgpack }, but found '$s'.")
         return None()
     }
   }
 
   def parseMode(args: ISZ[String], i: Z): Option[Mode.Type] = {
     if (i >= args.size) {
-      eprintln("Expecting one of the following: { json, msgpack }, but none found.")
+      eprintln("Expecting one of the following: { jsonCompact, json, msgpack }, but none found.")
       return None()
     }
     val r = parseModeH(args(i))
@@ -84,16 +86,16 @@ import Cli._
           |Usage: <option>* <system-name>
           |
           |Available Options:
-          |-m, --mode               Serialization method (expects one of { json, msgpack
-          |                           }; default: json)
+          |-m, --mode               Serialization method (expects one of { jsonCompact,
+          |                           json, msgpack }; default: jsonCompact)
           |-e, --osate              OSATE installation path (expects a path)
           |-p, --projects           OSATE project folders (expects path strings; default
           |                           is ".")
-          |-a, --main-package       AADl main package file (expects a string)
+          |-a, --main-package       AADL main package file (expects a string)
           |-o, --output             AIR output file path (expects a path)
           |-h, --help               Display this information""".render
 
-    var mode: Mode.Type = Mode.Json
+    var mode: Mode.Type = Mode.JsonCompact
     var osate: Option[String] = None[String]()
     var projects: ISZ[String] = ISZ(".")
     var main: Option[String] = None[String]()

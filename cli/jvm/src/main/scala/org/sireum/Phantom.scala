@@ -46,8 +46,10 @@ object Phantom extends scala.App {
   val defaultOsateDir = phantomDir / s"osate-$osateVersion"
 
   Cli(File.pathSeparatorChar).parsePhantom(ISZ(args.toSeq.map(s => s: String):_ *), 0) match {
-    case Some(o: Cli.PhantomOption) => phantom(o)
-    case _ => 1
+    case Some(o: Cli.PhantomOption) => System.exit(phantom(o))
+    case _ =>
+      println(Cli(File.pathSeparatorChar).parsePhantom(ISZ(""), 1).get.asInstanceOf[Cli.PhantomOption].help)
+      System.exit(-1)
   }
 
   def phantom(o: Cli.PhantomOption): Int = {
@@ -55,15 +57,15 @@ object Phantom extends scala.App {
       case z"0" => println(o.help); return 0
       case z"1" =>
       case _ =>
-        Console.err.println("Too many arguments provided. Expecting a single system implementation")
-        return 1
+        addError("Too many arguments provided. Expecting a single system implementation")
+        return -1
     }
 
     val projects = o.projects.map { it =>
       val f = new File(it.value)
       if(!f.exists()) {
-        Console.err.println(s"${it.value} is not a valid directory")
-        return 1
+        addError(s"${it.value} is not a valid directory")
+        return -1
       }
       Path(f.getAbsolutePath)
     }
@@ -74,23 +76,31 @@ object Phantom extends scala.App {
       projects(0).toIO.list().head
     }
 
+    val (serializeType, outExt) = o.mode match {
+      case Mode.JsonCompact => (o.mode.toString, ".json")
+      case _ =>
+        addWarning("Currently only JSON Compact is supported.  Using that instead.")
+        (Mode.JsonCompact.toString, ".json")
+    }
+
     val impl : String = o.args(0)
 
     val outFile: Path = if(o.output.nonEmpty) {
       val f = new File(o.output.get.value)
       if(f.exists() && f.isDirectory) {
-        Console.err.println(s"${f.getAbsolutePath} is a directory.  Should be the name for the generated ${o.mode} file.")
-        return 1
+        addError(s"${f.getAbsolutePath} is a directory.  Should be the name for the generated ${serializeType} file.")
+        return -1
       }
       Path(f)
     } else {
-      val outExt = if(o.mode == Mode.Json) String(".json")  else String(".msgpack")
       Path(projects(0) + impl.value + outExt)
     }
 
      val osateDir = o.osate match {
       case SSome(d) => Path(new File(d.value).getAbsolutePath)
-      case _ => installOsate(); defaultOsateDir
+      case _ =>
+        if(!installOsate()) { return -1 }
+        defaultOsateDir
     }
 
     val osateExe: Path = if(scala.util.Properties.isMac) {
@@ -100,13 +110,13 @@ object Phantom extends scala.App {
     } else if(scala.util.Properties.isWin) {
       osateDir / "osate.exe"
     } else {
-      Console.err.println("Phantom only supports macOS, Linux, or Windows")
-      return 1
+      addError("Phantom only supports macOS, Linux, or Windows")
+      return -1
     }
 
     if(!osateExe.toIO.exists){
       Console.err.println(s"${osateExe.toIO.getAbsolutePath} does not exist")
-      return 1
+      return -1
     }
 
     val installedPlugins : CommandResult = %%(osateExe, "-nosplash",
@@ -122,14 +132,14 @@ object Phantom extends scala.App {
       installPlugins(osateExe)
     }
 
-    execute(osateExe, projects(0), mainPackage, impl, outFile)
+    execute(osateExe, projects(0), mainPackage, impl, serializeType, outFile)
 
     0
   }
 
-  def installOsate(): Unit = {
+  def installOsate(): Boolean = {
     if (exists ! defaultOsateDir && defaultOsateDir.isDir) {
-      return
+      return true
     }
     rm ! defaultOsateDir
     val osateBundle = "osate.bundle"
@@ -154,12 +164,13 @@ object Phantom extends scala.App {
       %('unzip, "-q", osateBundle)(defaultOsateDir)
       rm ! defaultOsateDir / osateBundle
     } else {
-      Console.err.println("Phantom only supports macOS, Linux, or Windows")
-      System.exit(-1)
+      addError("Phantom only supports macOS, Linux, or Windows")
+      return false
     }
+    return true
   }
 
-  def installPlugins(osateExe : Path):Unit = {
+  def installPlugins(osateExe : Path): Unit = {
     %(osateExe, "-nosplash",
       "-console",
       "-consoleLog",
@@ -177,7 +188,7 @@ object Phantom extends scala.App {
     )(defaultOsateDir)
   }
 
-  def execute(osateExe : Path, project : Path, mainPackage: String, impl: String, out: Path):Unit = {
+  def execute(osateExe : Path, project : Path, mainPackage: String, impl: String, serializeType: String, out: Path): Unit = {
     %(osateExe, "-nosplash",
       "-console",
       "-consoleLog",
@@ -186,4 +197,7 @@ object Phantom extends scala.App {
       project.toString(), mainPackage.toString(), impl.value, out.toString()
     )(defaultOsateDir)
   }
+
+  def addError(s: String): Unit = { Console.err.println(s"Error: ${s}") }
+  def addWarning(s: String): Unit = { Console.out.println(s"Warning: ${s}") }
 }
