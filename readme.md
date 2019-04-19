@@ -1,4 +1,4 @@
-# OSATE Headless (aka Phantom)
+# Phantom -- OSATE Headless
 
 Phantom is a CLI-based tool that produces AADL instance models represented in [AIR](https://github.com/sireum/air).
 The AIR models can then be used in 
@@ -13,14 +13,14 @@ Java version 10 or older
 Execute the following commands to build Phantom
 
 ```bash
-git clone https://github.com/sireum/osate-headless.git
-cd osate-headless
-./build.sh
+git clone https://github.com/sireum/kekinian.git
+cd kekinian
+bin/build.cmd
 ```
    
 ## Usage
 
-Type `phantom` (or `phantom.bat` under Windows) to view Phantom's command line options
+Type `bin/sireum aadl phantom` (or `bin\sireum.bat aadl phantom` under Windows) to view Phantom's command line options
 
 ## Known Issues
 

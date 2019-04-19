@@ -23,36 +23,34 @@
  SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-import $file.runtime.Runtime
-import $file.cli.Cli
 import mill._
-import ammonite.ops._
+import mill.scalalib._
+import org.sireum.mill.SireumModule._
 
-object runtime extends mill.Module {
+trait Module extends JvmOnly {
 
-  object macros extends Runtime.Module.Macros
+  final override def crossDeps =
+    if (isSourceDep) Seq(libraryObject)
+    else Seq()
 
-  object test extends Runtime.Module.Test {
-    override def macrosObject = macros
+  final override def ivyDeps = {
+    if (isSourceDep) Agg.empty[Dep]
+    else Agg(
+      jpLatest(isCross = false, "sireum", "runtime", "library")
+    )
   }
 
-  trait testProvider extends Runtime.Module.TestProvider {
-    override def testObject = test
-  }
+  final override def deps = Seq()
 
-  object library extends Runtime.Module.Library with testProvider {
-    override def macrosObject = macros
-  }
+  final override def testFrameworks = Seq()
 
-}
+  final override def testIvyDeps = Agg.empty
 
-object cli extends Cli.Module {
-  override def libraryObject = runtime.library
-}
+  final override def scalacPluginIvyDeps = testScalacPluginIvyDeps
 
-def regenCli() = T.command {
-  val sireum = pwd / 'sireum
-  val sireumPackagePath = pwd / 'cli / 'jvm / 'src / 'main / 'scala / 'org / 'sireum
-  %(sireum, 'tools, 'cligen, "-p", "org.sireum", "-l", pwd / "license.txt",
-    sireumPackagePath / "cli.sc")(sireumPackagePath)
+  final override def testScalacPluginIvyDeps = Agg(
+    ivy"org.sireum::scalac-plugin:$scalacPluginVersion"
+  )
+
+  def libraryObject: CrossJvmJsPublish
 }
