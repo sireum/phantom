@@ -39,10 +39,10 @@ object Phantom {
   val sireumFeatureID: String = "org.sireum.aadl.osate.feature.feature.group"
   val cliFeatureID: String = "org.sireum.aadl.osate.cli.feature.feature.group"
 
-  def run(isJson: B, osateOpt: Option[Os.Path], projects: ISZ[Os.Path], mainPackage: String, output: Os.Path, impl: String): Z = {
-    val phantomDir: Os.Path = Os.home / ".sireum" / "phantom"
+  def phantomDir: Os.Path = Os.home / ".sireum" / "phantom"
+  def defaultOsateDir: Os.Path = phantomDir / s"osate-$osateVersion"
 
-    val defaultOsateDir: Os.Path = phantomDir / s"osate-$osateVersion"
+  def run(isJson: B, osateOpt: Option[Os.Path], projects: ISZ[Os.Path], mainPackage: String, output: Os.Path, impl: String): Z = {
 
     val osateDir = osateOpt match {
       case Some(d) => d
