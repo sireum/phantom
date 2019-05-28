@@ -34,14 +34,16 @@ object Phantom {
   val osateLinuxUrl: String = s"$osateUrlPrefix-linux.gtk.x86_64.tar.gz"
   val osateMacUrl: String = s"$osateUrlPrefix-macosx.cocoa.x86_64.tar.gz"
   val osateWinUrl: String = s"$osateUrlPrefix-win32.win32.x86_64.zip"
-  val phantomDir: Os.Path = Os.home / ".sireum" / "phantom"
   val sireumUpdateSite: String = "https://raw.githubusercontent.com/sireum/osate-plugin-update-site/master/org.sireum.aadl.osate.update.site/site.xml"
   val cliUpdateSite: String = "https://raw.githubusercontent.com/sireum/osate-plugin-update-site/master/org.sireum.aadl.osate.cli.update.site/site.xml"
   val sireumFeatureID: String = "org.sireum.aadl.osate.feature.feature.group"
   val cliFeatureID: String = "org.sireum.aadl.osate.cli.feature.feature.group"
-  val defaultOsateDir: Os.Path = phantomDir / s"osate-$osateVersion"
 
   def run(isJson: B, osateOpt: Option[Os.Path], projects: ISZ[Os.Path], mainPackage: String, output: Os.Path, impl: String): Z = {
+    val phantomDir: Os.Path = Os.home / ".sireum" / "phantom"
+
+    val defaultOsateDir: Os.Path = phantomDir / s"osate-$osateVersion"
+
     val osateDir = osateOpt match {
       case Some(d) => d
       case _ =>
