@@ -76,7 +76,7 @@ object Phantom {
       "org.eclipse.equinox.p2.director",
       "-listInstalledRoots")).at(osateDir).runCheck()
 
-    val isInstalled = installedPlugins.out.value.lines.exists(_.startsWith(cliFeatureID.value))
+    val isInstalled = installedPlugins.out.value.linesIterator.exists(_.startsWith(cliFeatureID.value))
 
     if(!isInstalled) {
       installPlugins(osateExe)
