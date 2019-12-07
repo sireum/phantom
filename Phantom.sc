@@ -27,7 +27,18 @@ import mill._
 import mill.scalalib._
 import org.sireum.mill.SireumModule._
 
-trait Module extends JvmOnly {
+trait Module extends JvmPublishOnly {
+
+  final override def description = "Sireum HAMR Phantom"
+
+  final override def artifactName = "hamr-phantom"
+
+  final override def subUrl: String = "phantom"
+
+  final override def developers = Seq(
+    Developers.jason,
+    Developers.hari
+  )
 
   final override def crossDeps =
     if (isSourceDep) Seq(libraryObject)
@@ -53,4 +64,6 @@ trait Module extends JvmOnly {
   )
 
   def libraryObject: CrossJvmJsPublish
+
+  object tests extends Tests
 }
