@@ -29,13 +29,13 @@ import org.sireum._
 
 object Phantom {
 
-  val osateVersion: String = "2.3.5-vfinal"
+  val osateVersion: String = "2.8.0-vfinal"
   val osateUrlPrefix: String = s"https://osate-build.sei.cmu.edu/download/osate/stable/$osateVersion/products/osate2-$osateVersion"
   val osateLinuxUrl: String = s"$osateUrlPrefix-linux.gtk.x86_64.tar.gz"
   val osateMacUrl: String = s"$osateUrlPrefix-macosx.cocoa.x86_64.tar.gz"
   val osateWinUrl: String = s"$osateUrlPrefix-win32.win32.x86_64.zip"
-  val sireumUpdateSite: String = "https://raw.githubusercontent.com/sireum/osate-plugin-update-site/master/org.sireum.aadl.osate.update.site/site.xml"
-  val cliUpdateSite: String = "https://raw.githubusercontent.com/sireum/osate-plugin-update-site/master/org.sireum.aadl.osate.cli.update.site/site.xml"
+  val sireumUpdateSite: String = "https://raw.githubusercontent.com/sireum/osate-plugin-update-site-2.13/master/org.sireum.aadl.osate.update.site"
+  val cliUpdateSite: String = "https://raw.githubusercontent.com/sireum/osate-plugin-update-site-2.13/master/org.sireum.aadl.osate.cli.update.site"
   val sireumFeatureID: String = "org.sireum.aadl.osate.feature.feature.group"
   val cliFeatureID: String = "org.sireum.aadl.osate.cli.feature.feature.group"
 
@@ -143,7 +143,7 @@ object Phantom {
       "-consoleLog",
       "-application",
       "org.sireum.aadl.osate.cli",
-      project.string, mainPackage, impl, out.string
+      project.string //, mainPackage, impl, out.string
     )).at(defaultOsateDir).console.runCheck()
   }
 
