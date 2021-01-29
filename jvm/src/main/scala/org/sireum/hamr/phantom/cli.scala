@@ -31,30 +31,44 @@ import org.sireum.cli.CliOpt._
 
 object cli {
 
+  // the usage field will be placed inside a ST so to get newlines that don't have large
+  // indentations we need to nest another ST inside that.
+  val tqs: String = "\"\"\""
+  val usage : String =
+    st"""$${st${tqs}<option>* <project-directory>?
+        ||
+        ||Either:
+        || - point to a directory containing a .project or .system file, or
+        || - populate the 'projects', 'main-package', and 'sys-impl' options${tqs}.render}""".render
+
   val phantomTool: Tool = Tool(
     name = "phantom",
     command = "phantom",
-    description = "",
     header = "Sireum Phantom: Headless OSATE AADL to AIR Translator",
-    usage = "<option>* <system-name>",
+    usage = usage,
+    description = "",
     opts = ISZ(
       Opt(name = "mode", longKey = "mode", shortKey = Some('m'),
         tpe = Type.Choice(name = "phantomMode", sep = None(), elements = ISZ("json", "msgpack")),
         description = "Serialization method"
       ),
-      Opt(name = "osate", longKey = "osate", shortKey = Some('e'),
+      Opt(name = "osate", longKey = "osate", shortKey = Some('o'),
         tpe = Type.Path(multiple = F, default = None()),
-        description = "OSATE installation path"
+        description = "Existing OSATE installation path, otherwise an internal version of OSATE will be used"
       ),
       Opt(name = "projects", longKey = "projects", shortKey = Some('p'),
-        tpe = Type.Path(multiple = T, default = Some(".")),
-        description = "OSATE project folders"
+        tpe = Type.Path(multiple = T, default = None()),
+        description = "OSATE project directories, each must contain an OSATE '.project' file"
       ),
       Opt(name = "main", longKey = "main-package", shortKey = Some('a'),
-        tpe = Type.Str(sep = None(), default = None()),
-        description = "AADL main package file"
+        tpe = Type.Path(multiple = F, default = None()),
+        description = "AADL main package file that contains a system implementation."
       ),
-      Opt(name = "output", longKey = "output", shortKey = Some('o'),
+      Opt(name = "impl", longKey = "sys-impl", shortKey = Some('s'),
+        tpe = Type.Str(sep = None(), default = None()),
+        description = "Name of the system implementation."
+      ),
+      Opt(name = "output", longKey = "output-file", shortKey = Some('f'),
         tpe = Type.Path(multiple = F, default = None()),
         description = "AIR output file path")
     ),
