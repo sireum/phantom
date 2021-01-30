@@ -48,6 +48,10 @@ object cli {
     usage = usage,
     description = "",
     opts = ISZ(
+      Opt(name = "update", longKey = "update", shortKey = Some('u'),
+        tpe = Type.Flag(default = F),
+        description = "Update Sireum OSATE plugins if installed"
+      ),
       Opt(name = "mode", longKey = "mode", shortKey = Some('m'),
         tpe = Type.Choice(name = "phantomMode", sep = None(), elements = ISZ("json", "msgpack")),
         description = "Serialization method"

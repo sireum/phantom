@@ -45,12 +45,13 @@ object Phantom {
   def phantomDir: Os.Path = { Os.home / ".sireum" / "phantom" }
   def defaultOsateDir: Os.Path = { phantomDir / s"osate-$osateVersion" }
 
-  def run(mode: String,
+  def run(update: B,
+          mode: String,
           osate: Option[Os.Path],
           projects: ISZ[Os.Path],
-          main: Option[String],
+          main: Option[Os.Path],
           impl: Option[String],
-          output: Option[String],
+          output: Option[Os.Path],
           projectDir: Option[Os.Path]): Z = {
 
     val osateDir: Os.Path = osate match {
@@ -76,18 +77,24 @@ object Phantom {
       return -1
     }
 
-    val installedPlugins = Os.proc(ISZ(
-      osateExe.string,
-      "-nosplash",
-      "-console",
-      "-consoleLog",
-      "-application",
-      "org.eclipse.equinox.p2.director",
-      "-listInstalledRoots")).at(osateDir).runCheck()
+    if(update) {
+      if(isInstalled(cliFeatureID, osateExe)) {
+        println("Uninstalling Phantom CLI OSATE plugin")
+        uninstallPlugin(cliFeatureID, osateExe)
+      }
+      if(isInstalled(sireumFeatureID, osateExe)) {
+        println("Uninstalling Sireum OSATE plugin")
+        uninstallPlugin(sireumFeatureID, osateExe)
+      }
+    }
 
-    val isInstalled = ops.StringOps(installedPlugins.out).contains(cliFeatureID)
-    if(!isInstalled) {
-      installPlugins(osateExe)
+    if(!isInstalled(sireumFeatureID, osateExe)) {
+      println("Installing Sireum OSATE plugin")
+      installPlugin(sireumFeatureID, sireumUpdateSite, osateExe)
+    }
+    if(!isInstalled(cliFeatureID, osateExe)) {
+      println("Installing Phantom CLI OSATE plugin")
+      installPlugin(cliFeatureID, cliUpdateSite, osateExe)
     }
 
     execute(osateExe, mode, projects, main, impl, output, projectDir)
@@ -97,7 +104,7 @@ object Phantom {
 
   def installOsate(): B = {
     if (defaultOsateDir.exists && defaultOsateDir.isDir) {
-      return true
+      return T
     }
     defaultOsateDir.removeAll()
     val osateBundle = Os.tempFix("osate", "bundle")
@@ -106,14 +113,14 @@ object Phantom {
       println(s"Downloading OSATE ${osateVersion}...")
       phantomDir.mkdirAll()
       osateBundle.downloadFrom(osateMacUrl)
-      Os.proc(ISZ("tar", "xfz", osateBundle.string)).at(phantomDir).console.runCheck()
+      Os.proc(ISZ("tar", "xfz", osateBundle.string)).at(phantomDir).runCheck()
       (phantomDir / "osate2.app" / "Contents").moveTo(defaultOsateDir)
       (phantomDir / "osate2.app").removeAll()
     } else if (Os.isLinux) {
       println(s"Downloading OSATE ${osateVersion}...")
       defaultOsateDir.mkdirAll()
       osateBundle.downloadFrom(osateLinuxUrl)
-      Os.proc(ISZ("tar", "xfz", osateBundle.string)).at(defaultOsateDir).console.runCheck()
+      Os.proc(ISZ("tar", "xfz", osateBundle.string)).at(defaultOsateDir).runCheck()
     } else if (Os.isWin) {
       println(s"Downloading OSATE ${osateVersion}...")
       defaultOsateDir.mkdirAll()
@@ -121,49 +128,51 @@ object Phantom {
       osateBundle.unzipTo(defaultOsateDir)
     } else {
       addError("Phantom only supports macOS, Linux, or Windows")
-      return false
+      return F
     }
     osateBundle.removeAll()
-    return true
+    println(s"OSATE ${osateVersion} installed at ${defaultOsateDir}")
+
+    return T
   }
 
-  def installPlugins(osateExe : Os.Path): Unit = {
-    Os.proc(ISZ(osateExe.string, "-nosplash",
-      "-console",
-      "-consoleLog",
-      "-application",
-      "org.eclipse.equinox.p2.director",
-      "-repository", sireumUpdateSite, "-installIU", sireumFeatureID
-    )).at(defaultOsateDir).console.runCheck()
+  def isInstalled(featureId: String, osateExe: Os.Path): B = {
+    val installedPlugins = Os.proc(ISZ(osateExe.string, "-nosplash", "-console", "-consoleLog", "-application", "org.eclipse.equinox.p2.director",
+      "-listInstalledRoots")).at(osateExe.up).runCheck()
+    return ops.StringOps(installedPlugins.out).contains(featureId)
+  }
 
-    Os.proc(ISZ(osateExe.string, "-nosplash",
-      "-console",
-      "-consoleLog",
-      "-application",
-      "org.eclipse.equinox.p2.director",
-      "-repository", cliUpdateSite, "-installIU", cliFeatureID
-    )).at(defaultOsateDir).console.runCheck()
+  def uninstallPlugin(featureId: String, osateExe : Os.Path): Unit = {
+    Os.proc(ISZ(osateExe.string, "-nosplash", "-console", "-consoleLog", "-application", "org.eclipse.equinox.p2.director",
+      "-uninstallIU", featureId
+    )).at(osateExe.up).runCheck()
+  }
+
+  def installPlugin(featureId: String, updateSite: String, osateExe : Os.Path): Unit = {
+    Os.proc(ISZ(osateExe.string, "-nosplash", "-console", "-consoleLog", "-application", "org.eclipse.equinox.p2.director",
+      "-repository", updateSite, "-installIU", featureId
+    )).at(osateExe.up).runCheck()
   }
 
   def execute(osateExe : Os.Path,
               mode: String,
               projects : ISZ[Os.Path],
-              main: Option[String],
+              main: Option[Os.Path],
               impl: Option[String],
-              output: Option[String],
+              output: Option[Os.Path],
               projectDir: Option[Os.Path]): Unit = {
-
 
     def getKey(name: String): String = {
       val cand = phantomTool.opts.filter(f => f.name == name)
       if (cand.isEmpty || cand.size > 1) { halt(s"Issue arose when looking up longKey for ${name}") }
-      return cand(0).longKey
+      return s"--${cand(0).longKey}"
     }
 
     // Phantom keys will be used by the OSATE plugin CLI so need to make sure the
     // right long key names are used
+    //val updateKey: String = getKey("update")
     val modeKey: String = getKey("mode")
-    val osateKey: String = getKey("osate")
+    //val osateKey: String = getKey("osate")
     val projectsKey: String = getKey("projects")
     val mainKey: String = getKey("main")
     val implKey: String = getKey("impl")
@@ -171,25 +180,19 @@ object Phantom {
 
     var args = ISZ(modeKey, mode)
 
-    // don't pass osate option since phantom will be working on osateExe
+    // don't pass update or osate options since phantom will be working on osateExe
 
     if(projects.nonEmpty) {
-      args = (args :+ projectsKey) :+ ops.ISZOps(projects)
-        .foldLeft((s: String, p: Os.Path) => s"$s${Os.pathSep}${p.value}", "")
+      args = (args :+ projectsKey) :+ st"${(projects, Os.pathSep)}".render
     }
 
-    if(main.nonEmpty) { args = (args :+ mainKey) :+ main.get }
+    if(main.nonEmpty) { args = (args :+ mainKey) :+ main.get.value }
     if(impl.nonEmpty) { args = (args :+ implKey) :+ impl.get }
-    if(output.nonEmpty) { args = (args :+ outputKey) :+ output.get }
+    if(output.nonEmpty) { args = (args :+ outputKey) :+ output.get.value }
 
     if(projectDir.nonEmpty) { args = args :+ projectDir.get.value }
 
-    Os.proc(ISZ[String](
-      osateExe.string,
-      "-nosplash",
-      "-console",
-      "-consoleLog",
-      "-application",
+    Os.proc(ISZ[String](osateExe.string, "-nosplash", "-console", "-consoleLog", "-application",
       "org.sireum.aadl.osate.cli") ++ args).at(defaultOsateDir).console.runCheck()
   }
 
