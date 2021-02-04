@@ -32,7 +32,7 @@ import org.sireum.hamr.phantom.cli.phantomTool
 
 object Phantom {
 
-  val osateVersion: String = "2.9.0-vfinal"
+  val osateVersion: String = "2.9.1-vfinal"
   val osateUrlPrefix: String = s"https://osate-build.sei.cmu.edu/download/osate/stable/$osateVersion/products/osate2-$osateVersion"
   val osateLinuxUrl: String = s"$osateUrlPrefix-linux.gtk.x86_64.tar.gz"
   val osateMacUrl: String = s"$osateUrlPrefix-macosx.cocoa.x86_64.tar.gz"
@@ -178,7 +178,9 @@ object Phantom {
     val implKey: String = getKey("impl")
     val outputKey: String = getKey("output")
 
-    var args = ISZ(modeKey, mode)
+    var args: ISZ[String] = ISZ("hamr", "phantom")
+
+    args = (args :+ modeKey) :+ mode
 
     // don't pass update or osate options since phantom will be working on osateExe
 
