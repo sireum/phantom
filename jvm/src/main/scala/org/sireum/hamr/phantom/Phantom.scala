@@ -1,7 +1,7 @@
 // #Sireum
 
 /*
- Copyright (c) 2018, Kansas State University
+ Copyright (c) 2021, Kansas State University
  All rights reserved.
 
  Redistribution and use in source and binary forms, with or without
@@ -32,74 +32,92 @@ import org.sireum.hamr.phantom.cli.phantomTool
 
 object Phantom {
 
+  @datatype class Feature(name: String, id: String, updateSite: String)
+
   val osateVersion: String = "2.9.1-vfinal"
   val osateUrlPrefix: String = s"https://osate-build.sei.cmu.edu/download/osate/stable/$osateVersion/products/osate2-$osateVersion"
   val osateLinuxUrl: String = s"$osateUrlPrefix-linux.gtk.x86_64.tar.gz"
   val osateMacUrl: String = s"$osateUrlPrefix-macosx.cocoa.x86_64.tar.gz"
   val osateWinUrl: String = s"$osateUrlPrefix-win32.win32.x86_64.zip"
-  val sireumUpdateSite: String = "https://raw.githubusercontent.com/sireum/osate-plugin-update-site/master/org.sireum.aadl.osate.update.site"
-  val cliUpdateSite: String =    "https://raw.githubusercontent.com/sireum/osate-plugin-update-site/master/org.sireum.aadl.osate.cli.update.site"
-  val sireumFeatureID: String = "org.sireum.aadl.osate.feature.feature.group"
-  val cliFeatureID: String = "org.sireum.aadl.osate.cli.feature.feature.group"
+
+  val awasFeature: Feature = Feature(  "AWAS",        "org.sireum.aadl.osate.awas.feature.feature.group", "https://raw.githubusercontent.com/sireum/osate-plugin-update-site/master/org.sireum.aadl.osate.awas.update.site")
+  val cliFeature: Feature = Feature(   "Phantom CLI", "org.sireum.aadl.osate.cli.feature.feature.group",  "https://raw.githubusercontent.com/sireum/osate-plugin-update-site/master/org.sireum.aadl.osate.cli.update.site")
+  //val cliFeature: Feature = Feature(   "Phantom CLI", "org.sireum.aadl.osate.cli.feature.feature.group",  "file:///home/vagrant/devel/sireum/osate-plugin-update-site/org.sireum.aadl.osate.cli.update.site")
+  val sireumFeature: Feature = Feature("Sireum",      "org.sireum.aadl.osate.feature.feature.group",      "https://raw.githubusercontent.com/sireum/osate-plugin-update-site/master/org.sireum.aadl.osate.update.site")
+  val hamrFeature: Feature = Feature(  "HAMR",        "org.sireum.aadl.osate.hamr.feature.feature.group", "https://raw.githubusercontent.com/sireum/hamr-plugin-update-site/master/org.sireum.aadl.osate.hamr.update.site")
 
   def phantomDir: Os.Path = { Os.home / ".sireum" / "phantom" }
   def defaultOsateDir: Os.Path = { phantomDir / s"osate-$osateVersion" }
 
-  def run(update: B,
-          mode: String,
-          osate: Option[Os.Path],
-          projects: ISZ[Os.Path],
-          main: Option[Os.Path],
-          impl: Option[String],
-          output: Option[Os.Path],
-          projectDir: Option[Os.Path]): Z = {
+  def update(osateExe: Os.Path): Z = {
+    val order: ISZ[Feature] = ISZ(cliFeature, hamrFeature, awasFeature, sireumFeature)
+
+    for(o <- order) {
+      if (isInstalled(o.id, osateExe)) {
+        addInfo(s"Uninstalling ${o.name} OSATE plugin")
+        uninstallPlugin(o.id, osateExe)
+      }
+    }
+
+    for(o <- ops.ISZOps(order).reverse) {
+      if (!isInstalled(o.id, osateExe)) {
+        addInfo(s"Installing ${o.name} OSATE plugin from ${o.updateSite}")
+        installPlugin(o.id, o.updateSite, osateExe)
+      }
+    }
+
+    val st: ST =
+      st"""Sireum is now available via an ${osateExe.name} CLI.  E.g.:
+          |  alias osireum='${osateExe.canon} -nosplash -console -consoleLog -application org.sireum.aadl.osate.cli'
+          |
+          |  Then invoke osireum to see the command line usage.
+          |
+          |  The following tools have customized behavior when run from osireum:
+          |    - hamr phantom:  some options ignored (e.g. --update, --osate)
+          |    - hamr code-gen: requires a .project or .system file rather than a serialized AIR file"""
+
+    addInfo(st.render)
+
+    return 0
+  }
+
+  def getOsateExe(osate: Option[Os.Path]): Option[Os.Path] = {
 
     val osateDir: Os.Path = osate match {
       case Some(d) => d
       case _ =>
-        if(!installOsate()) { return -1 }
+        if(!installOsate()) {
+          return None()
+        }
         defaultOsateDir
     }
 
+    // TODO require 'osate' option to point to the exe so that we don't have to worry about the brand
+    val brand: String = if(osate.isEmpty || ops.StringOps(osate.get.name).contains("osate")) {
+      "osate"
+    } else if(ops.StringOps(osate.get.name).contains("fmide")){
+      "fmide"
+    } else {
+      halt(s"Unknown OSATE product: ${osate.get}")
+    }
+
     val osateExe: Os.Path = if (Os.isMac) {
-      osateDir / "MacOS" / "osate"
+      osateDir / "MacOS" / brand
     } else if (Os.isLinux) {
-      osateDir / "osate"
+      osateDir / brand
     } else if (Os.isWin) {
-      osateDir / "osate.exe"
+      osateDir / s"${brand}.exe"
     } else {
       addError("Phantom only supports macOS, Linux, or Windows")
-      return -1
+      return None()
     }
 
     if(!osateExe.exists) {
       addError(s"$osateExe does not exist")
-      return -1
+      return None()
     }
 
-    if(update) {
-      if(isInstalled(cliFeatureID, osateExe)) {
-        println("Uninstalling Phantom CLI OSATE plugin")
-        uninstallPlugin(cliFeatureID, osateExe)
-      }
-      if(isInstalled(sireumFeatureID, osateExe)) {
-        println("Uninstalling Sireum OSATE plugin")
-        uninstallPlugin(sireumFeatureID, osateExe)
-      }
-    }
-
-    if(!isInstalled(sireumFeatureID, osateExe)) {
-      println("Installing Sireum OSATE plugin")
-      installPlugin(sireumFeatureID, sireumUpdateSite, osateExe)
-    }
-    if(!isInstalled(cliFeatureID, osateExe)) {
-      println("Installing Phantom CLI OSATE plugin")
-      installPlugin(cliFeatureID, cliUpdateSite, osateExe)
-    }
-
-    execute(osateExe, mode, projects, main, impl, output, projectDir)
-
-    return 0
+    return Some(osateExe)
   }
 
   def installOsate(): B = {
@@ -110,19 +128,19 @@ object Phantom {
     val osateBundle = Os.tempFix("osate", "bundle")
     osateBundle.removeAll()
     if (Os.isMac) {
-      println(s"Downloading OSATE ${osateVersion}...")
+      addInfo(s"Downloading OSATE ${osateVersion}...")
       phantomDir.mkdirAll()
       osateBundle.downloadFrom(osateMacUrl)
       Os.proc(ISZ("tar", "xfz", osateBundle.string)).at(phantomDir).runCheck()
       (phantomDir / "osate2.app" / "Contents").moveTo(defaultOsateDir)
       (phantomDir / "osate2.app").removeAll()
     } else if (Os.isLinux) {
-      println(s"Downloading OSATE ${osateVersion}...")
+      addInfo(s"Downloading OSATE ${osateVersion}...")
       defaultOsateDir.mkdirAll()
       osateBundle.downloadFrom(osateLinuxUrl)
       Os.proc(ISZ("tar", "xfz", osateBundle.string)).at(defaultOsateDir).runCheck()
     } else if (Os.isWin) {
-      println(s"Downloading OSATE ${osateVersion}...")
+      addInfo(s"Downloading OSATE ${osateVersion}...")
       defaultOsateDir.mkdirAll()
       osateBundle.downloadFrom(osateWinUrl)
       osateBundle.unzipTo(defaultOsateDir)
@@ -131,9 +149,13 @@ object Phantom {
       return F
     }
     osateBundle.removeAll()
-    println(s"OSATE ${osateVersion} installed at ${defaultOsateDir}")
+    addInfo(s"OSATE ${osateVersion} installed at ${defaultOsateDir}")
 
-    return T
+    return defaultOsateDir.exists
+  }
+
+  def pluginsInstalled(osateExe: Os.Path): B = {
+    return isInstalled(cliFeature.id, osateExe) && isInstalled(sireumFeature.id, osateExe)
   }
 
   def isInstalled(featureId: String, osateExe: Os.Path): B = {
@@ -160,7 +182,7 @@ object Phantom {
               main: Option[Os.Path],
               impl: Option[String],
               output: Option[Os.Path],
-              projectDir: Option[Os.Path]): Unit = {
+              projectDir: Option[Os.Path]): Z = {
 
     def getKey(name: String): String = {
       val cand = phantomTool.opts.filter(f => f.name == name)
@@ -170,7 +192,7 @@ object Phantom {
 
     // Phantom keys will be used by the OSATE plugin CLI so need to make sure the
     // right long key names are used
-    //val updateKey: String = getKey("update")
+    //val update: String = getKey("update")
     val modeKey: String = getKey("mode")
     //val osateKey: String = getKey("osate")
     val projectsKey: String = getKey("projects")
@@ -194,10 +216,13 @@ object Phantom {
 
     if(projectDir.nonEmpty) { args = args :+ projectDir.get.value }
 
-    Os.proc(ISZ[String](osateExe.string, "-nosplash", "-console", "-consoleLog", "-application",
+    val result = Os.proc(ISZ[String](osateExe.string, "-nosplash", "-console", "-consoleLog", "-application",
       "org.sireum.aadl.osate.cli") ++ args).at(defaultOsateDir).console.runCheck()
+
+    return result.exitCode
   }
 
-  def addError(s: String): Unit = { cprintln(T, s"Error: $s. Pass '-h' for usage info.") }
+  def addInfo(s: String): Unit = { cprintln(F, s ) }
+  def addError(s: String): Unit = { cprintln(T, s"Error: $s.") }
   def addWarning(s: String): Unit = { cprintln(F, s"Warning: $s") }
 }

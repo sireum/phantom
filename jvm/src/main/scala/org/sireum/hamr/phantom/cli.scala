@@ -35,11 +35,16 @@ object cli {
   // indentations we need to nest another ST inside that.
   val tqs: String = "\"\"\""
   val usage : String =
-    st"""$${st${tqs}<option>* <project-directory>?
+    st"""$${st${tqs}
+        ||    phantom --update [--osate <path>]
         ||
-        ||Either:
-        || - point to a directory containing a .project or .system file, or
-        || - populate the 'projects', 'main-package', and 'sys-impl' options${tqs}.render}""".render
+        ||      Just update/install Sireum OSATE plugins
+        ||
+        ||or: phantom [<options>] [<project-directory>]
+        ||
+        ||      Generate AIR.  Either:
+        ||        - point to a directory containing a .project or .system file, or
+        ||        - populate the 'projects', 'main-package', and 'sys-impl' options${tqs}.render}""".render
 
   val phantomTool: Tool = Tool(
     name = "phantom",
@@ -50,15 +55,15 @@ object cli {
     opts = ISZ(
       Opt(name = "update", longKey = "update", shortKey = Some('u'),
         tpe = Type.Flag(default = F),
-        description = "Update Sireum OSATE plugins if installed"
-      ),
-      Opt(name = "mode", longKey = "mode", shortKey = Some('m'),
-        tpe = Type.Choice(name = "phantomMode", sep = None(), elements = ISZ("json", "msgpack")),
-        description = "Serialization method"
+        description = "Update (or install) Sireum OSATE plugins"
       ),
       Opt(name = "osate", longKey = "osate", shortKey = Some('o'),
         tpe = Type.Path(multiple = F, default = None()),
         description = "Existing OSATE installation path, otherwise an internal version of OSATE will be used"
+      ),
+      Opt(name = "mode", longKey = "mode", shortKey = Some('m'),
+        tpe = Type.Choice(name = "phantomMode", sep = None(), elements = ISZ("json", "msgpack")),
+        description = "Serialization method"
       ),
       Opt(name = "projects", longKey = "projects", shortKey = Some('p'),
         tpe = Type.Path(multiple = T, default = None()),
