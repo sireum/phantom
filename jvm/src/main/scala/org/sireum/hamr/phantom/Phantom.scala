@@ -74,7 +74,7 @@ object Phantom {
           |
           |  The following tools have customized behavior when run from osireum:
           |    - hamr phantom:  some options ignored (e.g. --update, --osate)
-          |    - hamr code-gen: requires a .project or .system file rather than a serialized AIR file"""
+          |    - hamr code-gen: accepts .project or .system files in addition to serialized AIR files"""
 
     addInfo(st.render)
 
