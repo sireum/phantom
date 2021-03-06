@@ -68,13 +68,13 @@ object Phantom {
 
     val st: ST =
       st"""Sireum is now available via an ${osateExe.name} CLI.  E.g.:
-          |  alias osireum='${osateExe.canon} -nosplash -console -consoleLog -application org.sireum.aadl.osate.cli'
+          |  alias osireum='${osateExe.canon} -nosplash -console -consoleLog -data @user.home/.sireum -application org.sireum.aadl.osate.cli'
           |
           |  Then invoke osireum to see the command line usage.
           |
           |  The following tools have customized behavior when run from osireum:
           |    - hamr phantom:  some options ignored (e.g. --update, --osate)
-          |    - hamr code-gen: accepts .project or .system files in addition to serialized AIR files"""
+          |    - hamr codegen: accepts .project or .system files in addition to serialized AIR files"""
 
     addInfo(st.render)
 
