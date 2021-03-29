@@ -6,3 +6,5 @@ target
 /versions.properties
 /runtime
 /sireum
+*.cmd.jar
+*.cmd.com
