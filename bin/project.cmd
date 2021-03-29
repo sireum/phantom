@@ -33,7 +33,7 @@ import org.sireum.project.{JSON, Project}
 
 val library = "library"
 
-val phantom = "phantom"
+val phantom = "hamr-phantom"
 
 val homeDir = Os.slashDir.up.canon
 
