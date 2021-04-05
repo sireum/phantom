@@ -8,3 +8,4 @@ target
 /sireum
 *.cmd.jar
 *.cmd.com
+project.json
