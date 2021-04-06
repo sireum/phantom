@@ -26,11 +26,17 @@ val phantom = "hamr-phantom"
 
 val homeDir = Os.slashDir.up.canon
 
-val phantomJvm = moduleJvm(
+val phantomJvm = moduleJvmPub(
   id = phantom,
   baseDir = homeDir,
   jvmDeps = ISZ(library),
-  jvmIvyDeps = ISZ()
+  jvmIvyDeps = ISZ(),
+  pubOpt = pub(
+    desc = "HAMR Phantom Headless AADL Tool",
+    url = "github.com/sireum/phantom",
+    licenses = org.sireum.project.ProjectUtil.bsd2,
+    devs = ISZ(jasonBelt, thari)
+  )
 )
 
 val project = Project.empty + phantomJvm
