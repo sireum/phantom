@@ -34,7 +34,7 @@ val phantomJvm = moduleJvmPub(
   pubOpt = pub(
     desc = "HAMR Phantom Headless AADL Tool",
     url = "github.com/sireum/phantom",
-    licenses = org.sireum.project.ProjectUtil.bsd2,
+    licenses = bsd2,
     devs = ISZ(jasonBelt, thari)
   )
 )
