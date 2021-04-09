@@ -51,6 +51,7 @@ object cli {
     command = "phantom",
     header = "Sireum Phantom: Headless OSATE AADL to AIR Translator",
     usage = usage,
+    usageDescOpt = None(),
     description = "",
     opts = ISZ(
       Opt(name = "update", longKey = "update", shortKey = Some('u'),
