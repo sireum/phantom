@@ -35,8 +35,8 @@ object cli {
   // indentations we need to nest another ST inside that.
   val tqs: String = "\"\"\""
   val usage : String =
-    st"""$${st${tqs}
-        ||    phantom --update [--osate <path>]
+    st"""$${st$tqs
+        ||    phantom --update [--osate <path>] [--properties <path>]
         ||
         ||      Just update/install Sireum OSATE plugins
         ||
@@ -44,7 +44,7 @@ object cli {
         ||
         ||      Generate AIR.  Either:
         ||        - point to a directory containing a .project or .system file, or
-        ||        - populate the 'projects', 'main-package', and 'sys-impl' options${tqs}.render}""".render
+        ||        - populate the 'projects', 'main-package', and 'sys-impl' options$tqs.render}""".render
 
   val phantomTool: Tool = Tool(
     name = "phantom",
@@ -54,34 +54,48 @@ object cli {
     usageDescOpt = None(),
     description = "",
     opts = ISZ(
-      Opt(name = "update", longKey = "update", shortKey = Some('u'),
-        tpe = Type.Flag(default = F),
-        description = "Update (or install) Sireum OSATE plugins"
-      ),
-      Opt(name = "osate", longKey = "osate", shortKey = Some('o'),
-        tpe = Type.Path(multiple = F, default = None()),
-        description = "Existing OSATE installation path, otherwise an internal version of OSATE will be used"
-      ),
-      Opt(name = "mode", longKey = "mode", shortKey = Some('m'),
-        tpe = Type.Choice(name = "phantomMode", sep = None(), elements = ISZ("json", "msgpack")),
-        description = "Serialization method"
-      ),
-      Opt(name = "projects", longKey = "projects", shortKey = Some('p'),
-        tpe = Type.Path(multiple = T, default = None()),
-        description = "OSATE project directories, each must contain an OSATE '.project' file"
+      Opt(name = "impl", longKey = "sys-impl", shortKey = Some('s'),
+        tpe = Type.Str(sep = None(), default = None()),
+        description = "Name of the system implementation."
       ),
       Opt(name = "main", longKey = "main-package", shortKey = Some('a'),
         tpe = Type.Path(multiple = F, default = None()),
         description = "AADL main package file that contains a system implementation."
       ),
-      Opt(name = "impl", longKey = "sys-impl", shortKey = Some('s'),
-        tpe = Type.Str(sep = None(), default = None()),
-        description = "Name of the system implementation."
+      Opt(name = "mode", longKey = "mode", shortKey = Some('m'),
+        tpe = Type.Choice(name = "phantomMode", sep = None(), elements = ISZ("json", "msgpack")),
+        description = "Serialization method"
       ),
       Opt(name = "output", longKey = "output-file", shortKey = Some('f'),
         tpe = Type.Path(multiple = F, default = None()),
-        description = "AIR output file path")
+        description = "AIR output file path"),
+      Opt(name = "projects", longKey = "projects", shortKey = Some('p'),
+        tpe = Type.Path(multiple = T, default = None()),
+        description = "OSATE project directories, each must contain an OSATE '.project' file"
+      ),
+      Opt(name = "quiet", longKey = "quiet", shortKey = Some('q'),
+        tpe = Type.Flag(default = F),
+        description = "Do not print informational messages"),
     ),
-    groups = ISZ()
+    groups = ISZ(
+      OptGroup(name = "OSATE", opts = ISZ(
+        Opt(name = "osate", longKey = "osate", shortKey = Some('o'),
+          tpe = Type.Path(multiple = F, default = None()),
+          description = "Existing OSATE installation path, otherwise an internal version of OSATE will be used"
+        ),
+        Opt(name = "update", longKey = "update", shortKey = Some('u'),
+          tpe = Type.Flag(default = F),
+          description = "Update (or install) Sireum OSATE plugins"
+        ),
+        Opt(name = "features", longKey = "features", shortKey = None(),
+          tpe = Type.Str(sep = Some(';'), default = None()),
+          description = "Plugin features to update/install, each of the form <feature-id>=<repo-url-1>,...,<repo-url-N>"
+        ),
+        Opt(name = "version", longKey = "version", shortKey = Some('v'),
+          tpe = Type.Str(sep = None(), default = Some("2.9.2-vfinal")),
+          description = "OSATE version"
+        ),
+      ))
+    )
   )
 }
