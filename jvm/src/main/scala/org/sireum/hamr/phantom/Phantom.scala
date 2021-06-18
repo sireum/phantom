@@ -56,16 +56,12 @@ import Phantom._
 
   val procEnv: ISZ[(String, String)] = ISZ(("PATH", s"${Os.env("PATH").get}${Os.pathSep}${Os.path(Os.env("JAVA_HOME").get) / "bin"}"))
 
-  def phantomDir: Os.Path = {
-    osateOpt match {
-      case Some(osate) => return osate
-      case _ => return Os.home / ".sireum" / "phantom"
-    }
+  val phantomDir: Os.Path = osateOpt match {
+    case Some(osate) => osate
+    case _ => Os.home / ".sireum" / "phantom"
   }
 
-  def osateDir: Os.Path = {
-    phantomDir / s"osate-$osateVersion"
-  }
+  val osateDir: Os.Path = phantomDir / s"osate-$osateVersion${if (Os.isMac) ".app" else ""}"
 
   def update(osateExe: Os.Path,
              features: ISZ[Feature]): Z = {
@@ -105,7 +101,7 @@ import Phantom._
 
     val brand = "osate"
     val osateExe: Os.Path = if (Os.isMac) {
-      osateDir.up.canon / s"osate-$osateVersion.app" / "Contents" / "MacOS" / brand
+      osateDir / "Contents" / "MacOS" / brand
     } else if (Os.isLinux) {
       osateDir / brand
     } else if (Os.isWin) {
@@ -135,19 +131,16 @@ import Phantom._
       osateBundlePath.downloadFrom(osateUrl)
       println()
     }
-    val installDir: Os.Path = if (Os.isMac) {
+    if (Os.isMac) {
       phantomDir.mkdirAll()
       Os.proc(ISZ("tar", "xfz", osateBundlePath.string)).at(phantomDir).runCheck()
-      val idir = osateDir.up.canon / s"osate-$osateVersion.app"
-      (osateDir.up.canon / "osate2.app").moveTo(idir)
-      idir
+      (osateDir.up.canon / "osate2.app").moveTo(osateDir)
     } else {
       osateDir.mkdirAll()
       Os.proc(ISZ("tar", "xfz", osateBundlePath.string)).at(osateDir).runCheck()
-      osateDir
     }
 
-    addInfo(s"OSATE $osateVersion installed at $installDir")
+    addInfo(s"OSATE $osateVersion installed at $osateDir")
 
     return osateDir.exists
   }
