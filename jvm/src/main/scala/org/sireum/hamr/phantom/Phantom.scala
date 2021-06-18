@@ -54,6 +54,8 @@ import Phantom._
   val sireumFeature: Feature = Feature("Sireum", "org.sireum.aadl.osate.feature.feature.group", "https://raw.githubusercontent.com/sireum/osate-plugin-update-site/master/org.sireum.aadl.osate.update.site")
   val hamrFeature: Feature = Feature("HAMR", "org.sireum.aadl.osate.hamr.feature.feature.group", "https://raw.githubusercontent.com/sireum/hamr-plugin-update-site/master/org.sireum.aadl.osate.hamr.update.site")
 
+  val procEnv: ISZ[(String, String)] = ISZ(("PATH", s"${Os.env("PATH").get}${Os.pathSep}${Os.path(Os.env("JAVA_HOME").get) / "bin"}"))
+
   def phantomDir: Os.Path = {
     osateOpt match {
       case Some(osate) => return osate
@@ -133,16 +135,18 @@ import Phantom._
       osateBundlePath.downloadFrom(osateUrl)
       println()
     }
-    phantomDir.mkdirAll()
-    Os.proc(ISZ("tar", "xfz", osateBundlePath.string)).at(phantomDir).runCheck()
-
     val installDir: Os.Path = if (Os.isMac) {
+      phantomDir.mkdirAll()
+      Os.proc(ISZ("tar", "xfz", osateBundlePath.string)).at(phantomDir).runCheck()
       val idir = osateDir.up.canon / s"osate-$osateVersion.app"
       (osateDir.up.canon / "osate2.app").moveTo(idir)
       idir
     } else {
+      osateDir.mkdirAll()
+      Os.proc(ISZ("tar", "xfz", osateBundlePath.string)).at(osateDir).runCheck()
       osateDir
     }
+
     addInfo(s"OSATE $osateVersion installed at $installDir")
 
     return osateDir.exists
@@ -154,20 +158,20 @@ import Phantom._
 
   def isInstalled(featureId: String, osateExe: Os.Path): B = {
     val installedPlugins = Os.proc(ISZ(osateExe.string, "-nosplash", "-console", "-consoleLog", "-application", "org.eclipse.equinox.p2.director",
-      "-listInstalledRoots")).at(osateExe.up).runCheck()
+      "-listInstalledRoots")).env(procEnv).at(osateExe.up).runCheck()
     return ops.StringOps(installedPlugins.out).contains(featureId)
   }
 
   def uninstallPlugin(featureId: String, osateExe: Os.Path): Unit = {
     Os.proc(ISZ(osateExe.string, "-nosplash", "-console", "-consoleLog", "-application", "org.eclipse.equinox.p2.director",
       "-uninstallIU", featureId
-    )).at(osateExe.up).runCheck()
+    )).env(procEnv).at(osateExe.up).runCheck()
   }
 
   def installPlugin(featureId: String, updateSite: String, osateExe: Os.Path): Unit = {
     Os.proc(ISZ(osateExe.string, "-nosplash", "-console", "-consoleLog", "-application", "org.eclipse.equinox.p2.director",
       "-repository", updateSite, "-installIU", featureId
-    )).at(osateExe.up).runCheck()
+    )).env(procEnv).at(osateExe.up).runCheck()
   }
 
   def execute(osateExe: Os.Path,
@@ -221,7 +225,7 @@ import Phantom._
     }
 
     val prc = Os.proc(ISZ[String](osateExe.string, "-nosplash", "-console", "-consoleLog", "-application",
-      "org.sireum.aadl.osate.cli") ++ args).at(osateDir)
+      "org.sireum.aadl.osate.cli") ++ args).env(procEnv).at(osateDir)
 
     val result: Os.Proc.Result = if (quiet) prc.runCheck() else prc.console.runCheck()
 
