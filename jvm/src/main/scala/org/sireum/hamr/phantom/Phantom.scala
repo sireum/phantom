@@ -220,8 +220,10 @@ import Phantom._
       args = args :+ projectDir.get.value
     }
 
-    val result = Os.proc(ISZ[String](osateExe.string, "-nosplash", "-console", "-consoleLog", "-application",
-      "org.sireum.aadl.osate.cli") ++ args).at(osateDir).console.runCheck()
+    val prc = Os.proc(ISZ[String](osateExe.string, "-nosplash", "-console", "-consoleLog", "-application",
+      "org.sireum.aadl.osate.cli") ++ args).at(osateDir)
+
+    val result: Os.Proc.Result = if (quiet) prc.runCheck() else prc.console.runCheck()
 
     return result.exitCode
   }

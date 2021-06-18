@@ -36,7 +36,7 @@ object cli {
   val tqs: String = "\"\"\""
   val usage : String =
     st"""$${st$tqs
-        ||    phantom --update [--osate <path>] [--properties <path>]
+        ||    phantom --update [--osate <path>] [--features <config>]
         ||
         ||      Just update/install Sireum OSATE plugins
         ||
