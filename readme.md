@@ -20,7 +20,7 @@ bin/build.cmd
    
 ## Usage
 
-Type `bin/sireum aadl phantom` (or `bin\sireum.bat aadl phantom` under Windows) to view Phantom's command line options
+Type `bin/sireum hamr phantom` (or `bin\sireum.bat hamr phantom` under Windows) to view Phantom's command line options
 
 ## Known Issues
 
