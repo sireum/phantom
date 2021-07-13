@@ -96,25 +96,37 @@ import Phantom._
     return 0
   }
 
-  def getOsateExe: Option[Os.Path] = {
+  def getOsateExe(sireumHome: Os.Path): Option[Os.Path] = {
     installOsate()
 
     val brand = "osate"
-    val osateExe: Os.Path = if (Os.isMac) {
-      osateDir / "Contents" / "MacOS" / brand
+    val (osateExe, osateIni): (Os.Path, Os.Path) = if (Os.isMac) {
+      (osateDir / "Contents" / "MacOS" / brand, osateDir / "Contents" / "Eclipse" / "osate.ini")
     } else if (Os.isLinux) {
-      osateDir / brand
+      (osateDir / brand, osateDir / "osate.ini")
     } else if (Os.isWin) {
-      osateDir / s"$brand.exe"
+      (osateDir / s"$brand.exe", osateDir / "osate.ini")
     } else {
       addError("Phantom only supports macOS, Linux, or Windows")
       return None()
     }
 
-    if (!osateExe.exists) {
-      addError(s"$osateExe does not exist")
+    for (p <- ISZ(osateExe, osateIni, sireumHome / "bin" / "sireum.jar") if !p.exists) {
+      addError(s"${p.canon.value} does not exist. This needs to be resolved before proceeding")
       return None()
     }
+
+    val content = ops.StringOps(osateIni.read)
+    val sireumPos = content.stringIndexOf("-Dorg.sireum.home=")
+    val updated: String = if (sireumPos > 0) {
+      val currentEntry = content.substring(sireumPos + 18, content.indexOfFrom('\n', sireumPos + 18))
+      content.replaceAllLiterally(currentEntry, sireumHome.canon.value)
+    } else {
+      content.replaceAllLiterally("-vmargs",
+        st"""-vmargs
+            |-Dorg.sireum.home=${sireumHome.canon.value}""".render)
+    }
+    osateIni.writeOver(updated)
 
     return Some(osateExe)
   }
