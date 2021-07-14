@@ -48,11 +48,7 @@ import Phantom._
 
   val osateUrl: String = s"$osateUrlPrefix$osateBundle"
 
-  val awasFeature: Feature = Feature("AWAS", "org.sireum.aadl.osate.awas.feature.feature.group", "https://raw.githubusercontent.com/sireum/osate-plugin-update-site/master/org.sireum.aadl.osate.awas.update.site")
-  val cliFeature: Feature = Feature("Phantom CLI", "org.sireum.aadl.osate.cli.feature.feature.group", "https://raw.githubusercontent.com/sireum/osate-plugin-update-site/master/org.sireum.aadl.osate.cli.update.site")
-  //val cliFeature: Feature = Feature(   "Phantom CLI", "org.sireum.aadl.osate.cli.feature.feature.group",  "file:///home/vagrant/devel/sireum/osate-plugin-update-site/org.sireum.aadl.osate.cli.update.site")
-  val sireumFeature: Feature = Feature("Sireum", "org.sireum.aadl.osate.feature.feature.group", "https://raw.githubusercontent.com/sireum/osate-plugin-update-site/master/org.sireum.aadl.osate.update.site")
-  val hamrFeature: Feature = Feature("HAMR", "org.sireum.aadl.osate.hamr.feature.feature.group", "https://raw.githubusercontent.com/sireum/hamr-plugin-update-site/master/org.sireum.aadl.osate.hamr.update.site")
+  //val awasFeature: Feature = Feature("AWAS", "org.sireum.aadl.osate.awas.feature.feature.group", "https://raw.githubusercontent.com/sireum/osate-plugin-update-site/master/org.sireum.aadl.osate.awas.update.site")
 
   val procEnv: ISZ[(String, String)] = ISZ(("PATH", s"${Os.env("PATH").get}${Os.pathSep}${Os.path(Os.env("JAVA_HOME").get) / "bin"}"))
 
@@ -65,16 +61,15 @@ import Phantom._
 
   def update(osateExe: Os.Path,
              features: ISZ[Feature]): Z = {
-    val order: ISZ[Feature] = if (features.nonEmpty) features else ISZ(cliFeature, hamrFeature, awasFeature, sireumFeature)
 
-    for (o <- order) {
+    for (o <- features) {
       if (isInstalled(o.id, osateExe)) {
         addInfo(s"Uninstalling ${o.name} OSATE plugin")
         uninstallPlugin(o.id, osateExe)
       }
     }
 
-    for (o <- ops.ISZOps(order).reverse) {
+    for (o <- ops.ISZOps(features).reverse) {
       if (!isInstalled(o.id, osateExe)) {
         addInfo(s"Installing ${o.name} OSATE plugin from ${o.updateSite}")
         installPlugin(o.id, o.updateSite, osateExe)
@@ -157,8 +152,8 @@ import Phantom._
     return osateDir.exists
   }
 
-  def pluginsInstalled(osateExe: Os.Path): B = {
-    return isInstalled(cliFeature.id, osateExe) && isInstalled(sireumFeature.id, osateExe)
+  def featuresInstalled(features: ISZ[Feature], osateExe: Os.Path): B = {
+    return ops.ISZOps(features).forall(f => isInstalled(f.id, osateExe))
   }
 
   def isInstalled(featureId: String, osateExe: Os.Path): B = {

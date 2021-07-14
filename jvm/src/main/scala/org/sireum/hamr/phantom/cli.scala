@@ -38,7 +38,7 @@ object cli {
     st"""$${st$tqs
         ||    phantom --update [--osate <path>] [--features <config>]
         ||
-        ||      Just update/install Sireum OSATE plugins
+        ||      Just update/install features
         ||
         ||or: phantom [<options>] [<project-directory>]
         ||
@@ -85,11 +85,11 @@ object cli {
         ),
         Opt(name = "update", longKey = "update", shortKey = Some('u'),
           tpe = Type.Flag(default = F),
-          description = "Update (or install) Sireum OSATE plugins"
+          description = "Update (or install) features"
         ),
         Opt(name = "features", longKey = "features", shortKey = None(),
           tpe = Type.Str(sep = Some(';'), default = None()),
-          description = "Plugin features to update/install, each of the form <feature-id>=<repo-url-1>,...,<repo-url-N>"
+          description = "Plugin features to update/install, each of the form <feature-id>=<repo-url-1>,...,<repo-url-N>. Latest Sireum plugins installed if not provided"
         ),
         Opt(name = "version", longKey = "version", shortKey = Some('v'),
           tpe = Type.Str(sep = None(), default = Some("2.9.2-vfinal")),
