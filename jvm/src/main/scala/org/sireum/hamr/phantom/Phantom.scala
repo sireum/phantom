@@ -78,7 +78,7 @@ import Phantom._
 
     val st: ST =
       st"""Sireum is now available via an ${osateExe.name} CLI.  E.g.:
-          |  alias osireum='${osateExe.canon} -nosplash -console -consoleLog -data @user.home/.sireum -application org.sireum.aadl.osate.cli'
+          |  alias osireum='${osateExe.canon} -nosplash -console -consoleLog --launcher.suppressErrors -data @user.home/.sireum -application org.sireum.aadl.osate.cli'
           |
           |  Then invoke osireum to see the command line usage.
           |
@@ -224,10 +224,10 @@ import Phantom._
       args = args :+ projectDir.get.value
     }
 
-    val prc = Os.proc(ISZ[String](osateExe.string, "-nosplash", "-console", "-consoleLog", "-application",
-      "org.sireum.aadl.osate.cli") ++ args).env(procEnv).at(osateDir)
+    val prc = Os.proc(ISZ[String](osateExe.string, "-nosplash", "-console", "-consoleLog", "--launcher.suppressErrors",
+      "-data", "@user.home/.sireum", "-application", "org.sireum.aadl.osate.cli") ++ args).env(procEnv).at(osateDir)
 
-    val result: Os.Proc.Result = if (quiet) prc.runCheck() else prc.console.runCheck()
+    val result: Os.Proc.Result = if (quiet) prc.run() else prc.console.console.run()
 
     return result.exitCode
   }
