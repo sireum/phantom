@@ -37,7 +37,7 @@ object Phantom {
 
 import Phantom._
 
-@datatype class Phantom(val osateVersion: String, val osateOpt: Option[Os.Path], val quiet: B) {
+@datatype class Phantom(val osateVersion: String, val osateOpt: Option[Os.Path], val quiet: B, sireumHome: Os.Path) {
   val osateUrlPrefix: String = s"https://osate-build.sei.cmu.edu/download/osate/stable/$osateVersion/products/"
   val osateBundle: String = Os.kind match {
     case Os.Kind.Mac => s"osate2-$osateVersion-macosx.cocoa.x86_64.tar.gz"
@@ -78,7 +78,7 @@ import Phantom._
 
     val st: ST =
       st"""Sireum is now available via an ${osateExe.name} CLI.  E.g.:
-          |  alias osireum='${osateExe.canon} -nosplash -console -consoleLog --launcher.suppressErrors -data @user.home/.sireum -application org.sireum.aadl.osate.cli'
+          |  alias osireum='${getOsateLauncherString(osateExe)} -data @user.home/.sireum -application org.sireum.aadl.osate.cli'
           |
           |  Then invoke osireum to see the command line usage.
           |
@@ -91,7 +91,7 @@ import Phantom._
     return 0
   }
 
-  def getOsateExe(sireumHome: Os.Path): Option[Os.Path] = {
+  def getOsateExe(): Option[Os.Path] = {
     installOsate()
 
     val brand = "osate"
@@ -157,19 +157,19 @@ import Phantom._
   }
 
   def isInstalled(featureId: String, osateExe: Os.Path): B = {
-    val installedPlugins = Os.proc(ISZ(osateExe.string, "-nosplash", "-console", "-consoleLog", "-application", "org.eclipse.equinox.p2.director",
+    val installedPlugins = Os.proc(getOsateLauncher(osateExe) ++ ISZ[String]("-application", "org.eclipse.equinox.p2.director",
       "-listInstalledRoots")).env(procEnv).at(osateExe.up).runCheck()
     return ops.StringOps(installedPlugins.out).contains(featureId)
   }
 
   def uninstallPlugin(featureId: String, osateExe: Os.Path): Unit = {
-    Os.proc(ISZ(osateExe.string, "-nosplash", "-console", "-consoleLog", "-application", "org.eclipse.equinox.p2.director",
+    Os.proc(getOsateLauncher(osateExe) ++ ISZ[String]("-application", "org.eclipse.equinox.p2.director",
       "-uninstallIU", featureId
     )).env(procEnv).at(osateExe.up).runCheck()
   }
 
   def installPlugin(featureId: String, updateSite: String, osateExe: Os.Path): Unit = {
-    Os.proc(ISZ(osateExe.string, "-nosplash", "-console", "-consoleLog", "-application", "org.eclipse.equinox.p2.director",
+    Os.proc(getOsateLauncher(osateExe) ++ ISZ[String]("-application", "org.eclipse.equinox.p2.director",
       "-repository", updateSite, "-installIU", featureId
     )).env(procEnv).at(osateExe.up).runCheck()
   }
@@ -224,12 +224,34 @@ import Phantom._
       args = args :+ projectDir.get.value
     }
 
-    val prc = Os.proc(ISZ[String](osateExe.string, "-nosplash", "-console", "-consoleLog", "--launcher.suppressErrors",
-      "-data", "@user.home/.sireum", "-application", "org.sireum.aadl.osate.cli") ++ args).env(procEnv).at(osateDir)
+    val procArgs = getOsateLauncher(osateExe) ++
+      ISZ[String]("-data", "@user.home/.sireum", "-application", "org.sireum.aadl.osate.cli") ++ args
+    //println(st"${(procArgs, " ")}".render)
 
-    val result: Os.Proc.Result = if (quiet) prc.run() else prc.console.console.run()
+    val prc = Os.proc(procArgs).env(procEnv).at(osateDir)
+
+    val result: Os.Proc.Result = if (quiet) prc.run() else prc.console.run()
 
     return result.exitCode
+  }
+
+  def getOsateLauncher(osateExe: Os.Path): ISZ[String] = {
+    var ret: ISZ[String] = ISZ[String](osateExe.string, "-nosplash", "-console", "-consoleLog", "--launcher.suppressErrors")
+      if(Os.isWin) {
+        // osate.exe will try to open a new console window when consoleLog is used. This causes headless
+        // CI builds to halt/freeze. Instead, run it directly from the launcher
+        // TODO: ensure osate.ini is being is used, pass other java system properties??
+        val launcherJar = (osateDir / "plugins").list.filter(p => ops.StringOps(p.name).startsWith("org.eclipse.equinox.launcher_") && p.ext == "jar")
+        if(launcherJar.size == 1) {
+          // launcher does not have '--launcher.suppressErrors option
+          ret = ISZ[String]("java", s"-Dorg.sireum.home=${sireumHome.value}", "-cp", launcherJar(0).string, "org.eclipse.core.launcher.Main", "-nosplash", "-console", "-consoleLog")
+        }
+      }
+    return ret
+  }
+
+  def getOsateLauncherString(osateExe: Os.Path): String = {
+    return st"${(getOsateLauncher(osateExe), " ")}".render
   }
 
   def addInfo(s: String): Unit = {
@@ -245,5 +267,4 @@ import Phantom._
   def addWarning(s: String): Unit = {
     cprintln(F, s"Warning: $s")
   }
-
 }
