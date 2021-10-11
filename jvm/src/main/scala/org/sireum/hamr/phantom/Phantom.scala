@@ -95,33 +95,43 @@ import Phantom._
     installOsate()
 
     val brand = "osate"
-    val (osateExe, osateIni): (Os.Path, Os.Path) = if (Os.isMac) {
-      (osateDir / "Contents" / "MacOS" / brand, osateDir / "Contents" / "Eclipse" / "osate.ini")
+    val (osateExe, osateIni, javaLoc): (Os.Path, Os.Path, Os.Path) = if (Os.isMac) {
+      (osateDir / "Contents" / "MacOS" / brand, osateDir / "Contents" / "Eclipse" / "osate.ini", sireumHome / "bin" / "mac" / "java" / "bin" / "java")
     } else if (Os.isLinux) {
-      (osateDir / brand, osateDir / "osate.ini")
+      (osateDir / brand, osateDir / "osate.ini", sireumHome / "bin" / "linux" / "java" / "bin" / "java")
     } else if (Os.isWin) {
-      (osateDir / s"$brand.exe", osateDir / "osate.ini")
+      (osateDir / s"$brand.exe", osateDir / "osate.ini", sireumHome / "bin" / "win" / "java" / "bin" / "java.exe")
     } else {
       addError("Phantom only supports macOS, Linux, or Windows")
       return None()
     }
 
-    for (p <- ISZ(osateExe, osateIni, sireumHome / "bin" / "sireum.jar") if !p.exists) {
+    for (p <- ISZ(osateExe, osateIni, sireumHome / "bin" / "sireum.jar", javaLoc) if !p.exists) {
       addError(s"${p.canon.value} does not exist. This needs to be resolved before proceeding")
       return None()
     }
 
-    val content = ops.StringOps(osateIni.read)
-    val sireumPos = content.stringIndexOf("-Dorg.sireum.home=")
-    val updated: String = if (sireumPos > 0) {
-      val currentEntry = content.substring(sireumPos + 18, content.indexOfFrom('\n', sireumPos + 18))
-      content.replaceAllLiterally(currentEntry, sireumHome.canon.value)
-    } else {
-      content.replaceAllLiterally("-vmargs",
-        st"""-vmargs
-            |-Dorg.sireum.home=${sireumHome.canon.value}""".render)
+    var content = ops.ISZOps(osateIni.readLines)
+
+    var pos = content.indexOf("-vm")
+    if (pos < content.s.size) { // remove old vm entry
+      content = ops.ISZOps(content.slice(0, pos) ++ content.slice(pos + 2, content.s.size))
     }
-    osateIni.writeOver(updated)
+
+    def custContains(prefix: String, o: ISZ[String]): Z = {
+      for (i <- 0 until o.size if ops.StringOps(o(i)).contains(prefix)) { return i }; return o.size
+    }
+
+    pos = custContains("-Dorg.sireum.home=", content.s)
+    if (pos < content.s.size) { // remove old sireum location
+      content = ops.ISZOps(content.slice(0, pos) ++ content.slice(pos + 1, content.s.size))
+    }
+
+    pos = content.indexOf("-vmargs")
+    val newContent: ISZ[String] = content.slice(0, pos) ++ ISZ[String]("-vm", javaLoc.canon.value, "-vmargs", s"-Dorg.sireum.home=${sireumHome.canon.value}") ++ (
+      if (pos < content.s.size) content.slice(pos + 1, content.s.size) else ISZ[String]())
+
+    osateIni.writeOver(st"${(newContent, "\n")}".render)
 
     return Some(osateExe)
   }
@@ -243,8 +253,9 @@ import Phantom._
         // TODO: ensure osate.ini is being is used, pass other java system properties??
         val launcherJar = (osateDir / "plugins").list.filter(p => ops.StringOps(p.name).startsWith("org.eclipse.equinox.launcher_") && p.ext == "jar")
         if(launcherJar.size == 1) {
+          val javaLoc = sireumHome / "bin" / "win" / "java" / "bin" / "java.exe"
           // launcher does not have '--launcher.suppressErrors option
-          ret = ISZ[String]("java", s"-Dorg.sireum.home=${sireumHome.value}", "-cp", launcherJar(0).string, "org.eclipse.core.launcher.Main", "-nosplash", "-console", "-consoleLog")
+          ret = ISZ[String](javaLoc.value, s"-Dorg.sireum.home=${sireumHome.value}", "-cp", launcherJar(0).string, "org.eclipse.core.launcher.Main", "-nosplash", "-console", "-consoleLog")
         }
       }
     return ret
