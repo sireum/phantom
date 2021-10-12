@@ -111,7 +111,8 @@ import Phantom._
       return None()
     }
 
-    var content = ops.ISZOps(osateIni.readLines)
+    // FIXME: Os.Path readLines doesn't seem to close the file under github actions win boxes
+    var content = ops.ISZOps(ops.StringOps(osateIni.read).split((c: C) => c == '\n'))
 
     var pos = content.indexOf("-vm")
     if (pos < content.s.size) { // remove old vm entry
