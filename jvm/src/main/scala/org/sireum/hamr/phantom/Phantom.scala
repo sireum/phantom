@@ -99,10 +99,14 @@ import Phantom._
       // if the latter is present as Java will complain that there are duplicate fx modules
       val justj = "org.eclipse.justj.openjdk.hotspot.jre.full."
       val candidates = (eclipseDir / "plugins").list.filter((p : Os.Path) => p.isDir && ops.StringOps(p.name).startsWith(justj))
-      val bindir: Os.Path =
-        if(candidates.nonEmpty) candidates(0) / "jre" / "bin"
-        else sireumHome / "bin" / platform / "java" / "bin"
-      return bindir / s"java${if(Os.isWin) ".exe" else ""}"
+
+      val ret: Os.Path =
+        if(candidates.nonEmpty) {
+          if (Os.isMac) candidates(0) / "jre" / "lib" / "jli" / "libjli.dylib"
+          else candidates(0) / "jre" / "bin" / s"java${if (Os.isWin) ".exe" else ""}"
+        }
+        else { sireumHome / "bin" / platform / "java" }
+      return ret
     }
 
     val brand = "osate"
