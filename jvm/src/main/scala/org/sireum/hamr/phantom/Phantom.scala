@@ -94,24 +94,20 @@ import Phantom._
   def getOsateExe(): Option[Os.Path] = {
     installOsate()
 
-    def getJava(eclipseDir: Os.Path, platform: String): Os.Path = {
-      // osate 2.10.0+ ships with JustJ and JavaFx plugins.  Can't use Sireum's Java+Fx
-      // if the latter is present as Java will complain that there are duplicate fx modules
+    def getJava(eclipseDir: Os.Path, platform: String): Option[Os.Path] = {
+      // osate 2.10.0+ ships with JustJ and JavaFx plugins and adds an appropriate '-vm'
+      // entry to osate.ini.  For older versions of osate use Sireum's Java+Fx
       val justj = "org.eclipse.justj.openjdk.hotspot.jre.full."
       val candidates = (eclipseDir / "plugins").list.filter((p : Os.Path) => p.isDir && ops.StringOps(p.name).startsWith(justj))
-
-      val ret: Os.Path =
-        if(candidates.nonEmpty) {
-          if (Os.isMac) candidates(0) / "jre" / "lib" / "jli" / "libjli.dylib"
-          else candidates(0) / "jre" / "bin" / s"java${if (Os.isWin) ".exe" else ""}"
-        }
-        else { sireumHome / "bin" / platform / "java" }
-      return ret
+      return {
+        if(candidates.nonEmpty) None()
+        else Some(sireumHome / "bin" / platform / "java" / "bin" / s"java${if(Os.isWin) ".exe" else ""}")
+      }
     }
 
     val brand = "osate"
-    val (osateExe, osateIni, javaExe): (Os.Path, Os.Path, Os.Path) = if (Os.isMac) {
-      val java: Os.Path = getJava(osateDir / "Contents" / "Eclipse", "mac")
+    val (osateExe, osateIni, useSireumJava): (Os.Path, Os.Path, Option[Os.Path]) = if (Os.isMac) {
+      val java: Option[Os.Path] = getJava(osateDir / "Contents" / "Eclipse", "mac")
       (osateDir / "Contents" / "MacOS" / brand, osateDir / "Contents" / "Eclipse" / "osate.ini", java)
     } else if (Os.isLinux) {
       (osateDir / brand, osateDir / "osate.ini", getJava(osateDir, "linux"))
@@ -122,32 +118,40 @@ import Phantom._
       return None()
     }
 
-    for (p <- ISZ(osateExe, osateIni, sireumHome / "bin" / "sireum.jar", javaExe) if !p.exists) {
+    for (p <- ISZ(osateExe, osateIni, sireumHome / "bin" / "sireum.jar") if !p.exists) {
       addError(s"${p.canon.value} does not exist. This needs to be resolved before proceeding")
+      return None()
+    }
+
+    if (useSireumJava.nonEmpty && !useSireumJava.get.exists) {
+      addError(s"Sireum's java installation not found: ${useSireumJava.get.value}")
       return None()
     }
 
     // FIXME: Os.Path readLines doesn't seem to close the file under github actions win boxes
     var content = ops.ISZOps(ops.StringOps(osateIni.read).split((c: C) => c == '\n'))
 
-    var pos = content.indexOf("-vm")
-    if (pos < content.s.size) { // remove old vm entry
-      content = ops.ISZOps(content.slice(0, pos) ++ content.slice(pos + 2, content.s.size))
+    if(useSireumJava.nonEmpty) {
+      val pos = content.indexOf("-vm")
+      if (pos < content.s.size) { // remove old vm entry
+        content = ops.ISZOps(content.slice(0, pos) ++ content.slice(pos + 2, content.s.size))
+      }
     }
 
     def custContains(prefix: String, o: ISZ[String]): Z = {
       for (i <- 0 until o.size if ops.StringOps(o(i)).contains(prefix)) { return i }; return o.size
     }
 
-    pos = custContains("-Dorg.sireum.home=", content.s)
+    var pos = custContains("-Dorg.sireum.home=", content.s)
     if (pos < content.s.size) { // remove old sireum location
       content = ops.ISZOps(content.slice(0, pos) ++ content.slice(pos + 1, content.s.size))
     }
 
-    // NOTE: osate will relativize javaExe if it's pointing to the justj osate 2.10.0+ now ships with
     pos = content.indexOf("-vmargs")
-    val newContent: ISZ[String] = content.slice(0, pos) ++ ISZ[String]("-vm", javaExe.canon.value, "-vmargs", s"-Dorg.sireum.home=${sireumHome.canon.value}") ++ (
-      if (pos < content.s.size) content.slice(pos + 1, content.s.size) else ISZ[String]())
+    val newContent: ISZ[String] = content.slice(0, pos) ++
+      (if(useSireumJava.nonEmpty) ISZ[String]("-vm", useSireumJava.get.canon.value) else ISZ()) ++
+      ISZ("-vmargs", s"-Dorg.sireum.home=${sireumHome.canon.value}") ++
+      (if (pos < content.s.size) content.slice(pos + 1, content.s.size) else ISZ[String]())
 
     osateIni.writeOver(st"${(newContent, "\n")}".render)
 
