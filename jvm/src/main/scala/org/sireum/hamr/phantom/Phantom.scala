@@ -99,10 +99,10 @@ import Phantom._
       // entry to osate.ini.  For older versions of osate use Sireum's Java+Fx
       val justj = "org.eclipse.justj.openjdk.hotspot.jre.full."
       val candidates = (eclipseDir / "plugins").list.filter((p : Os.Path) => p.isDir && ops.StringOps(p.name).startsWith(justj))
-      return {
+      val ret: Option[Os.Path] =
         if(candidates.nonEmpty) None()
         else Some(sireumHome / "bin" / platform / "java" / "bin" / s"java${if(Os.isWin) ".exe" else ""}")
-      }
+      return ret
     }
 
     val brand = "osate"
@@ -149,7 +149,7 @@ import Phantom._
 
     pos = content.indexOf("-vmargs")
     val newContent: ISZ[String] = content.slice(0, pos) ++
-      (if(useSireumJava.nonEmpty) ISZ[String]("-vm", useSireumJava.get.canon.value) else ISZ()) ++
+      (if(useSireumJava.nonEmpty) ISZ[String]("-vm", useSireumJava.get.canon.value) else ISZ[String]()) ++
       ISZ("-vmargs", s"-Dorg.sireum.home=${sireumHome.canon.value}") ++
       (if (pos < content.s.size) content.slice(pos + 1, content.s.size) else ISZ[String]())
 
