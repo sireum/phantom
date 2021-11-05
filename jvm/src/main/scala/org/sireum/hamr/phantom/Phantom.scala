@@ -94,19 +94,31 @@ import Phantom._
   def getOsateExe(): Option[Os.Path] = {
     installOsate()
 
+    def getJava(eclipseDir: Os.Path, platform: String): Os.Path = {
+      // osate 2.10.0+ ships with JustJ and JavaFx plugins.  Can't use Sireum's Java+Fx
+      // if the latter is present as Java will complain that there are duplicate fx modules
+      val justj = "org.eclipse.justj.openjdk.hotspot.jre.full."
+      val candidates = (eclipseDir / "plugins").list.filter((p : Os.Path) => p.isDir && ops.StringOps(p.name).startsWith(justj))
+      val bindir: Os.Path =
+        if(candidates.nonEmpty) candidates(0) / "jre" / "bin"
+        else sireumHome / "bin" / platform / "java" / "bin"
+      return bindir / s"java${if(Os.isWin) ".exe" else ""}"
+    }
+
     val brand = "osate"
-    val (osateExe, osateIni, javaLoc): (Os.Path, Os.Path, Os.Path) = if (Os.isMac) {
-      (osateDir / "Contents" / "MacOS" / brand, osateDir / "Contents" / "Eclipse" / "osate.ini", sireumHome / "bin" / "mac" / "java" / "bin" / "java")
+    val (osateExe, osateIni, javaExe): (Os.Path, Os.Path, Os.Path) = if (Os.isMac) {
+      val java: Os.Path = getJava(osateDir / "Contents" / "Eclipse", "mac")
+      (osateDir / "Contents" / "MacOS" / brand, osateDir / "Contents" / "Eclipse" / "osate.ini", java)
     } else if (Os.isLinux) {
-      (osateDir / brand, osateDir / "osate.ini", sireumHome / "bin" / "linux" / "java" / "bin" / "java")
+      (osateDir / brand, osateDir / "osate.ini", getJava(osateDir, "linux"))
     } else if (Os.isWin) {
-      (osateDir / s"$brand.exe", osateDir / "osate.ini", sireumHome / "bin" / "win" / "java" / "bin" / "java.exe")
+      (osateDir / s"$brand.exe", osateDir / "osate.ini", getJava(osateDir, "win"))
     } else {
       addError("Phantom only supports macOS, Linux, or Windows")
       return None()
     }
 
-    for (p <- ISZ(osateExe, osateIni, sireumHome / "bin" / "sireum.jar", javaLoc) if !p.exists) {
+    for (p <- ISZ(osateExe, osateIni, sireumHome / "bin" / "sireum.jar", javaExe) if !p.exists) {
       addError(s"${p.canon.value} does not exist. This needs to be resolved before proceeding")
       return None()
     }
@@ -128,8 +140,9 @@ import Phantom._
       content = ops.ISZOps(content.slice(0, pos) ++ content.slice(pos + 1, content.s.size))
     }
 
+    // NOTE: osate will relativize javaExe if it's pointing to the justj osate 2.10.0+ now ships with
     pos = content.indexOf("-vmargs")
-    val newContent: ISZ[String] = content.slice(0, pos) ++ ISZ[String]("-vm", javaLoc.canon.value, "-vmargs", s"-Dorg.sireum.home=${sireumHome.canon.value}") ++ (
+    val newContent: ISZ[String] = content.slice(0, pos) ++ ISZ[String]("-vm", javaExe.canon.value, "-vmargs", s"-Dorg.sireum.home=${sireumHome.canon.value}") ++ (
       if (pos < content.s.size) content.slice(pos + 1, content.s.size) else ISZ[String]())
 
     osateIni.writeOver(st"${(newContent, "\n")}".render)
