@@ -48,8 +48,6 @@ import Phantom._
 
   val osateUrl: String = s"$osateUrlPrefix$osateBundle"
 
-  //val awasFeature: Feature = Feature("AWAS", "org.sireum.aadl.osate.awas.feature.feature.group", "https://raw.githubusercontent.com/sireum/osate-plugin-update-site/master/org.sireum.aadl.osate.awas.update.site")
-
   val phantomDir: Os.Path = osateOpt match {
     case Some(osate) => osate
     case _ => Os.home / ".sireum" / "phantom"
@@ -81,7 +79,7 @@ import Phantom._
           |  Then invoke osireum to see the command line usage.
           |
           |  The following tools have customized behavior when run from osireum:
-          |    - hamr phantom:  some options ignored (e.g. --update, --osate)
+          |    - hamr phantom: some options ignored (e.g. --update, --osate)
           |    - hamr codegen: accepts .project or .system files in addition to serialized AIR files"""
 
     addInfo(st.render)
