@@ -58,11 +58,19 @@ import Phantom._
   def update(osateExe: Os.Path,
              features: ISZ[Feature]): Z = {
 
+    var requiresGC = F
+
     for (o <- features) {
       if (isInstalled(o.id, osateExe)) {
         addInfo(s"Uninstalling ${o.name} OSATE plugin")
         uninstallPlugin(o.id, osateExe)
+        requiresGC = T
       }
+    }
+
+    if(requiresGC) {
+      // ensure the jar files are removed before attempting to reinstall
+      gc(osateExe)
     }
 
     for (o <- ops.ISZOps(features).reverse) {
@@ -200,6 +208,10 @@ import Phantom._
     Os.proc(getOsateLauncher(osateExe) ++ ISZ[String]("-application", "org.eclipse.equinox.p2.director",
       "-repository", updateSite, "-installIU", featureId
     )).at(osateExe.up).runCheck()
+  }
+
+  def gc(osateExe: Os.Path): Unit = {
+    proc"${osateExe.string} -nosplash -console -consoleLog -application org.eclipse.equinox.p2.garbagecollector.application -profile DefaultProfile".at(osateExe.up).runCheck()
   }
 
   def execute(osateExe: Os.Path,
