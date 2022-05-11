@@ -53,7 +53,10 @@ import Phantom._
     case _ => Os.home / ".sireum" / "phantom"
   }
 
-  val osateDir: Os.Path = phantomDir / s"osate-$osateVersion${if (Os.isMac) ".app" else ""}"
+  val osateDir: Os.Path = osateOpt match {
+    case Some(osate) => osate
+    case _ => phantomDir / s"osate-$osateVersion${if (Os.isMac) ".app" else ""}"
+  }
 
   def update(osateExe: Os.Path,
              features: ISZ[Feature]): Z = {
@@ -96,7 +99,9 @@ import Phantom._
   }
 
   def getOsateExe(): Option[Os.Path] = {
-    installOsate()
+    if(!installOsate()) {
+      return None()
+    }
 
     def getJava(eclipseDir: Os.Path, platform: String): Option[Os.Path] = {
       // osate 2.10.0+ ships with JustJ and JavaFx plugins and adds an appropriate '-vm'
@@ -109,14 +114,23 @@ import Phantom._
       return ret
     }
 
-    val brand = "osate"
+    val brand: String = osateOpt match {
+      case Some(o) =>
+        if(osateDir.name == "fmide.app" || (osateDir / "fmide").exists || (osateDir / "fmide.exe").exists)
+          "fmide"
+        else
+          "osate"
+      case _ => "osate"
+    }
+
     val (osateExe, osateIni, useSireumJava): (Os.Path, Os.Path, Option[Os.Path]) = if (Os.isMac) {
       val java: Option[Os.Path] = getJava(osateDir / "Contents" / "Eclipse", "mac")
-      (osateDir / "Contents" / "MacOS" / brand, osateDir / "Contents" / "Eclipse" / "osate.ini", java)
+      // NOTE: only the app name is changed to fmide.app on Mac, the osate exe and osate.ini cannot be renamed
+      (osateDir / "Contents" / "MacOS" / "osate", osateDir / "Contents" / "Eclipse" / "osate.ini", java)
     } else if (Os.isLinux) {
-      (osateDir / brand, osateDir / "osate.ini", getJava(osateDir, "linux"))
+      (osateDir / brand, osateDir / s"$brand.ini", getJava(osateDir, "linux"))
     } else if (Os.isWin) {
-      (osateDir / s"$brand.exe", osateDir / "osate.ini", getJava(osateDir, "win"))
+      (osateDir / s"$brand.exe", osateDir / s"$brand.ini", getJava(osateDir, "win"))
     } else {
       addError("Phantom only supports macOS, Linux, or Windows")
       return None()
