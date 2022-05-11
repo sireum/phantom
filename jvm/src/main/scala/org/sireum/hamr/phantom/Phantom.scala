@@ -49,7 +49,7 @@ import Phantom._
   val osateUrl: String = s"$osateUrlPrefix$osateBundle"
 
   val osateDir: Os.Path = osateOpt match {
-    case Some(osate) => osate
+    case Some(osate) => osate.canon
     case _ => Os.home / ".sireum" / "phantom" / s"osate-$osateVersion${if (Os.isMac) ".app" else ""}"
   }
 
@@ -205,7 +205,7 @@ import Phantom._
     if (Os.isMac) {
       osateDir.up.mkdirAll()
       Os.proc(ISZ("tar", "xfz", osateBundlePath.string)).at(osateDir.up).runCheck()
-      (osateDir.up.canon / "osate2.app").moveTo(osateDir)
+      (osateDir.up / "osate2.app").moveTo(osateDir)
     } else {
       osateDir.mkdirAll()
       Os.proc(ISZ("tar", "xfz", osateBundlePath.string)).at(osateDir).runCheck()
