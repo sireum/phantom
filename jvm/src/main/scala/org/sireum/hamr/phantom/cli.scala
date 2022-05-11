@@ -81,7 +81,7 @@ object cli {
       OptGroup(name = "OSATE", opts = ISZ(
         Opt(name = "osate", longKey = "osate", shortKey = Some('o'),
           tpe = Type.Path(multiple = F, default = None()),
-          description = "Existing OSATE installation path, otherwise an internal version of OSATE will be used"
+          description = "Either the path to an existing installation of OSATE, or the path where OSATE should be installed"
         ),
         Opt(name = "update", longKey = "update", shortKey = Some('u'),
           tpe = Type.Flag(default = F),

@@ -48,14 +48,24 @@ import Phantom._
 
   val osateUrl: String = s"$osateUrlPrefix$osateBundle"
 
-  val phantomDir: Os.Path = osateOpt match {
-    case Some(osate) => osate
-    case _ => Os.home / ".sireum" / "phantom"
-  }
-
   val osateDir: Os.Path = osateOpt match {
     case Some(osate) => osate
-    case _ => phantomDir / s"osate-$osateVersion${if (Os.isMac) ".app" else ""}"
+    case _ => Os.home / ".sireum" / "phantom" / s"osate-$osateVersion${if (Os.isMac) ".app" else ""}"
+  }
+
+  val existingInstallation: B = osateOpt match {
+    case Some(osate) if osate.exists =>
+      def findIni(dir: Os.Path): B = {
+        var found = F
+        for (e <- dir.list if !found) {
+          found = found |
+            (if (e.isFile) e.name == "osate.ini" || e.name == "fmide.ini"
+            else findIni(e))
+        }
+        return found
+      }
+      findIni(osate)
+    case _ => F
   }
 
   def update(osateExe: Os.Path,
@@ -71,7 +81,7 @@ import Phantom._
       }
     }
 
-    if(requiresGC) {
+    if (requiresGC) {
       // ensure the jar files are removed before attempting to reinstall
       gc(osateExe)
     }
@@ -99,7 +109,7 @@ import Phantom._
   }
 
   def getOsateExe(): Option[Os.Path] = {
-    if(!installOsate()) {
+    if (!installOsate()) {
       return None()
     }
 
@@ -107,16 +117,16 @@ import Phantom._
       // osate 2.10.0+ ships with JustJ and JavaFx plugins and adds an appropriate '-vm'
       // entry to osate.ini.  For older versions of osate use Sireum's Java+Fx
       val justj = "org.eclipse.justj.openjdk.hotspot.jre.full."
-      val candidates = (eclipseDir / "plugins").list.filter((p : Os.Path) => p.isDir && ops.StringOps(p.name).startsWith(justj))
+      val candidates = (eclipseDir / "plugins").list.filter((p: Os.Path) => p.isDir && ops.StringOps(p.name).startsWith(justj))
       val ret: Option[Os.Path] =
-        if(candidates.nonEmpty) None()
-        else Some(sireumHome / "bin" / platform / "java" / "bin" / s"java${if(Os.isWin) ".exe" else ""}")
+        if (candidates.nonEmpty) None()
+        else Some(sireumHome / "bin" / platform / "java" / "bin" / s"java${if (Os.isWin) ".exe" else ""}")
       return ret
     }
 
     val brand: String = osateOpt match {
       case Some(o) =>
-        if(osateDir.name == "fmide.app" || (osateDir / "fmide").exists || (osateDir / "fmide.exe").exists)
+        if (ops.StringOps(osateDir.name).contains("fmide.app") || (osateDir / "fmide").exists || (osateDir / "fmide.exe").exists)
           "fmide"
         else
           "osate"
@@ -149,7 +159,7 @@ import Phantom._
     // FIXME: Os.Path readLines doesn't seem to close the file under github actions win boxes
     var content = ops.ISZOps(ops.StringOps(osateIni.read).split((c: C) => c == '\n'))
 
-    if(useSireumJava.nonEmpty) {
+    if (useSireumJava.nonEmpty) {
       val pos = content.indexOf("-vm")
       if (pos < content.s.size) { // remove old vm entry
         content = ops.ISZOps(content.slice(0, pos) ++ content.slice(pos + 2, content.s.size))
@@ -157,7 +167,10 @@ import Phantom._
     }
 
     def custContains(prefix: String, o: ISZ[String]): Z = {
-      for (i <- 0 until o.size if ops.StringOps(o(i)).contains(prefix)) { return i }; return o.size
+      for (i <- 0 until o.size if ops.StringOps(o(i)).contains(prefix)) {
+        return i
+      }
+      return o.size
     }
 
     var pos = custContains("-Dorg.sireum.home=", content.s)
@@ -167,7 +180,7 @@ import Phantom._
 
     pos = content.indexOf("-vmargs")
     val newContent: ISZ[String] = content.slice(0, pos) ++
-      (if(useSireumJava.nonEmpty) ISZ[String]("-vm", useSireumJava.get.canon.value) else ISZ[String]()) ++
+      (if (useSireumJava.nonEmpty) ISZ[String]("-vm", useSireumJava.get.canon.value) else ISZ[String]()) ++
       ISZ("-vmargs", s"-Dorg.sireum.home=${sireumHome.canon.value}") ++
       (if (pos < content.s.size) content.slice(pos + 1, content.s.size) else ISZ[String]())
 
@@ -177,7 +190,7 @@ import Phantom._
   }
 
   def installOsate(): B = {
-    if (osateDir.exists && osateDir.isDir) {
+    if (existingInstallation) {
       return T
     }
     osateDir.removeAll()
@@ -186,11 +199,10 @@ import Phantom._
     if (!osateBundlePath.exists) {
       addInfo(s"Downloading $osateUrl ...")
       osateBundlePath.downloadFrom(osateUrl)
-      println()
     }
     if (Os.isMac) {
-      phantomDir.mkdirAll()
-      Os.proc(ISZ("tar", "xfz", osateBundlePath.string)).at(phantomDir).runCheck()
+      osateDir.up.mkdirAll()
+      Os.proc(ISZ("tar", "xfz", osateBundlePath.string)).at(osateDir.up).runCheck()
       (osateDir.up.canon / "osate2.app").moveTo(osateDir)
     } else {
       osateDir.mkdirAll()
@@ -291,17 +303,17 @@ import Phantom._
 
   def getOsateLauncher(osateExe: Os.Path): ISZ[String] = {
     var ret: ISZ[String] = ISZ[String](osateExe.string, "-nosplash", "-console", "-consoleLog", "--launcher.suppressErrors")
-      if(Os.isWin) {
-        // osate.exe will try to open a new console window when consoleLog is used. This causes headless
-        // CI builds to halt/freeze. Instead, run it directly from the launcher
-        // TODO: ensure osate.ini is being is used, pass other java system properties??
-        val launcherJar = (osateDir / "plugins").list.filter(p => ops.StringOps(p.name).startsWith("org.eclipse.equinox.launcher_") && p.ext == "jar")
-        if(launcherJar.size == 1) {
-          val javaLoc = sireumHome / "bin" / "win" / "java" / "bin" / "java.exe"
-          // launcher does not have '--launcher.suppressErrors option
-          ret = ISZ[String](javaLoc.value, s"-Dorg.sireum.home=${sireumHome.value}", "-cp", launcherJar(0).string, "org.eclipse.core.launcher.Main", "-nosplash", "-console", "-consoleLog")
-        }
+    if (Os.isWin) {
+      // osate.exe will try to open a new console window when consoleLog is used. This causes headless
+      // CI builds to halt/freeze. Instead, run it directly from the launcher
+      // TODO: ensure osate.ini is being is used, pass other java system properties??
+      val launcherJar = (osateDir / "plugins").list.filter(p => ops.StringOps(p.name).startsWith("org.eclipse.equinox.launcher_") && p.ext == "jar")
+      if (launcherJar.size == 1) {
+        val javaLoc = sireumHome / "bin" / "win" / "java" / "bin" / "java.exe"
+        // launcher does not have '--launcher.suppressErrors option
+        ret = ISZ[String](javaLoc.value, s"-Dorg.sireum.home=${sireumHome.value}", "-cp", launcherJar(0).string, "org.eclipse.core.launcher.Main", "-nosplash", "-console", "-consoleLog")
       }
+    }
     return ret
   }
 
