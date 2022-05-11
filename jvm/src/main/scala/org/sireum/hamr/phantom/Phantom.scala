@@ -53,8 +53,8 @@ import Phantom._
     case _ => Os.home / ".sireum" / "phantom" / s"osate-$osateVersion${if (Os.isMac) ".app" else ""}"
   }
 
-  val existingInstallation: B = osateOpt match {
-    case Some(osate) if osate.exists =>
+  val existingInstallation: B = {
+    if(osateDir.exists) {
       def findIni(dir: Os.Path): B = {
         var found = F
         for (e <- dir.list if !found) {
@@ -64,8 +64,10 @@ import Phantom._
         }
         return found
       }
-      findIni(osate)
-    case _ => F
+      findIni(osateDir)
+    } else {
+      F
+    }
   }
 
   def update(osateExe: Os.Path,
