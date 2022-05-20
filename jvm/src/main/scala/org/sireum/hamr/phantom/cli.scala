@@ -63,7 +63,7 @@ object cli {
         description = "AADL main package file that contains a system implementation."
       ),
       Opt(name = "mode", longKey = "mode", shortKey = Some('m'),
-        tpe = Type.Choice(name = "phantomMode", sep = None(), elements = ISZ("json", "msgpack")),
+        tpe = Type.Choice(name = "phantomMode", sep = None(), elements = ISZ("json", "json_compact", "msgpack")),
         description = "Serialization method"
       ),
       Opt(name = "output", longKey = "output-file", shortKey = Some('f'),
