@@ -33,11 +33,18 @@ import org.sireum.hamr.phantom.cli.phantomTool
 object Phantom {
 
   @datatype class Feature(val name: String, val id: String, val updateSite: String)
+
+}
+
+@enum object Verbosity {
+  "Off"
+  "Low"
+  "High"
 }
 
 import Phantom._
 
-@datatype class Phantom(val osateVersion: String, val osateOpt: Option[Os.Path], val quiet: B, sireumHome: Os.Path) {
+@datatype class Phantom(val osateVersion: String, val osateOpt: Option[Os.Path], val verbosity: Verbosity.Type, sireumHome: Os.Path) {
   val osateUrlPrefix: String = s"https://osate-build.sei.cmu.edu/download/osate/stable/$osateVersion/products/"
   val osateBundle: String = Os.kind match {
     case Os.Kind.Mac => s"osate2-$osateVersion-macosx.cocoa.x86_64.tar.gz"
@@ -54,7 +61,7 @@ import Phantom._
   }
 
   val existingInstallation: B = {
-    if(osateDir.exists) {
+    if (osateDir.exists) {
       def findIni(dir: Os.Path): B = {
         var found = F
         for (e <- dir.list if !found) {
@@ -64,6 +71,7 @@ import Phantom._
         }
         return found
       }
+
       findIni(osateDir)
     } else {
       F
@@ -95,11 +103,17 @@ import Phantom._
       }
     }
 
+    // everything above was proc.runCheck'ed so plugins successfully installed
+
     val st: ST =
-      st"""Sireum is now available via an ${osateExe.name} CLI.  E.g.:
+      st"""Plugins successfully installed.
+          |
+          |Sireum is now also available via an ${osateExe.name} CLI.  For example, on Mac/Linux
+          |you could add the following alias:
+          |
           |  alias osireum='${getOsateLauncherString(osateExe)} -data @user.home/.sireum -application org.sireum.aadl.osate.cli'
           |
-          |  Then invoke osireum to see the command line usage.
+          |  and then invoke osireum to see the command line usage.
           |
           |  The following tools have customized behavior when run from osireum:
           |    - hamr phantom: some options ignored (e.g. --update, --osate)
@@ -136,6 +150,12 @@ import Phantom._
     }
 
     val (osateExe, osateIni, useSireumJava): (Os.Path, Os.Path, Option[Os.Path]) = if (Os.isMac) {
+      val output = proc"xattr $osateDir".runCheck().out
+      if(ops.StringOps(output).contains("com.apple.quarantine")) {
+        proc"xattr -rd com.apple.quarantine $osateDir".runCheck()
+        addInfo(s"Removed quarantine attribute from $osateDir")
+      }
+
       val java: Option[Os.Path] = getJava(osateDir / "Contents" / "Eclipse", "mac")
       // NOTE: only the app name is changed to fmide.app on Mac, the osate exe and osate.ini cannot be renamed
       (osateDir / "Contents" / "MacOS" / "osate", osateDir / "Contents" / "Eclipse" / "osate.ini", java)
@@ -180,13 +200,23 @@ import Phantom._
       content = ops.ISZOps(content.slice(0, pos) ++ content.slice(pos + 1, content.s.size))
     }
 
+    val phantomAdditions: ISZ[String] =
+      if (useSireumJava.nonEmpty) ISZ[String]("-vm", useSireumJava.get.canon.value)
+      else ISZ[String]() ++ //
+        ISZ("-vmargs", s"-Dorg.sireum.home=${sireumHome.canon.value}")
+
     pos = content.indexOf("-vmargs")
-    val newContent: ISZ[String] = content.slice(0, pos) ++
-      (if (useSireumJava.nonEmpty) ISZ[String]("-vm", useSireumJava.get.canon.value) else ISZ[String]()) ++
-      ISZ("-vmargs", s"-Dorg.sireum.home=${sireumHome.canon.value}") ++
+    val modifiedContent: ISZ[String] = content.slice(0, pos) ++
+      phantomAdditions ++
       (if (pos < content.s.size) content.slice(pos + 1, content.s.size) else ISZ[String]())
 
-    osateIni.writeOver(st"${(newContent, "\n")}".render)
+    osateIni.writeOver(st"${(modifiedContent, "\n")}".render)
+
+    val info =
+      st"""Modified ${osateIni.value} to include the following system property:
+          |  ${(phantomAdditions, "\n")}
+          |This is used by the plugins to locate where Sireum is installed.""".render
+    addInfo(info)
 
     return Some(osateExe)
   }
@@ -204,11 +234,11 @@ import Phantom._
     }
     if (Os.isMac) {
       osateDir.up.mkdirAll()
-      Os.proc(ISZ("tar", "xfz", osateBundlePath.string)).at(osateDir.up).runCheck()
+      getProc(ISZ("tar", "xfz", osateBundlePath.string)).at(osateDir.up).runCheck()
       (osateDir.up / "osate2.app").moveTo(osateDir)
     } else {
       osateDir.mkdirAll()
-      Os.proc(ISZ("tar", "xfz", osateBundlePath.string)).at(osateDir).runCheck()
+      getProc(ISZ("tar", "xfz", osateBundlePath.string)).at(osateDir).runCheck()
     }
 
     addInfo(s"OSATE $osateVersion installed at $osateDir")
@@ -221,25 +251,28 @@ import Phantom._
   }
 
   def isInstalled(featureId: String, osateExe: Os.Path): B = {
+    // don't echo this
     val installedPlugins = Os.proc(getOsateLauncher(osateExe) ++ ISZ[String]("-application", "org.eclipse.equinox.p2.director",
       "-listInstalledRoots")).at(osateExe.up).runCheck()
     return ops.StringOps(installedPlugins.out).contains(featureId)
   }
 
   def uninstallPlugin(featureId: String, osateExe: Os.Path): Unit = {
-    Os.proc(getOsateLauncher(osateExe) ++ ISZ[String]("-application", "org.eclipse.equinox.p2.director",
+    getProc(getOsateLauncher(osateExe) ++ ISZ[String]("-application", "org.eclipse.equinox.p2.director",
       "-uninstallIU", featureId
     )).at(osateExe.up).runCheck()
   }
 
   def installPlugin(featureId: String, updateSite: String, osateExe: Os.Path): Unit = {
-    Os.proc(getOsateLauncher(osateExe) ++ ISZ[String]("-application", "org.eclipse.equinox.p2.director",
+    getProc(getOsateLauncher(osateExe) ++ ISZ[String]("-application", "org.eclipse.equinox.p2.director",
       "-repository", updateSite, "-installIU", featureId
     )).at(osateExe.up).runCheck()
   }
 
   def gc(osateExe: Os.Path): Unit = {
-    proc"${osateExe.string} -nosplash -console -consoleLog -application org.eclipse.equinox.p2.garbagecollector.application -profile DefaultProfile".at(osateExe.up).runCheck()
+    // don't echo this
+    Os.proc(getOsateLauncher(osateExe) ++ ISZ[String]("-application", "org.eclipse.equinox.p2.garbagecollector.application", "-profile", "DefaultProfile"))
+      .at(osateExe.up).runCheck()
   }
 
   def execute(osateExe: Os.Path,
@@ -296,9 +329,7 @@ import Phantom._
       ISZ[String]("-data", "@user.home/.sireum", "-application", "org.sireum.aadl.osate.cli") ++ args
     //println(st"${(procArgs, " ")}".render)
 
-    val prc = Os.proc(procArgs).at(osateDir)
-
-    val result: Os.Proc.Result = if (quiet) prc.run() else prc.console.run()
+    val result: Os.Proc.Result = getProc(procArgs).at(osateDir).run()
 
     return result.exitCode
   }
@@ -323,8 +354,18 @@ import Phantom._
     return st"${(getOsateLauncher(osateExe), " ")}".render
   }
 
+  def getProc(commands: ISZ[String]): Os.Proc = {
+    val ret: Os.Proc = {
+      verbosity match {
+        case Verbosity.High => Os.proc(commands).echo
+        case _ => Os.proc(commands)
+      }
+    }
+    return ret
+  }
+
   def addInfo(s: String): Unit = {
-    if (!quiet) {
+    if (verbosity != Verbosity.Off) {
       cprintln(F, s)
     }
   }

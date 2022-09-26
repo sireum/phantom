@@ -73,9 +73,12 @@ object cli {
         tpe = Type.Path(multiple = T, default = None()),
         description = "OSATE project directories, each must contain an OSATE '.project' file"
       ),
-      Opt(name = "quiet", longKey = "quiet", shortKey = Some('q'),
+      Opt(name = "verbose", longKey = "verbose", shortKey = Some('v'),
         tpe = Type.Flag(default = F),
-        description = "Do not print informational messages"),
+        description = "Verbose output"),
+      Opt(name = "verbosePlus", longKey = "verbose+", shortKey = None(),
+        tpe = Type.Flag(default = F),
+        description = "Increased verbose output")
     ),
     groups = ISZ(
       OptGroup(name = "OSATE", opts = ISZ(
