@@ -150,9 +150,9 @@ import Phantom._
     }
 
     val (osateExe, osateIni, useSireumJava): (Os.Path, Os.Path, Option[Os.Path]) = if (Os.isMac) {
-      val output = proc"xattr $osateDir".runCheck().out
+      val output = proc"xattr $osateDir".runCheck().out // don't echo
       if(ops.StringOps(output).contains("com.apple.quarantine")) {
-        proc"xattr -rd com.apple.quarantine $osateDir".runCheck()
+        proc"xattr -rd com.apple.quarantine $osateDir".runCheck() // don't echo
         addInfo(s"Removed quarantine attribute from $osateDir")
       }
 
@@ -179,7 +179,7 @@ import Phantom._
     }
 
     // FIXME: Os.Path readLines doesn't seem to close the file under github actions win boxes
-    var content = ops.ISZOps(ops.StringOps(osateIni.read).split((c: C) => c == '\n'))
+    var content: ops.ISZOps[String] = ops.ISZOps(ops.StringOps(osateIni.read).split((c: C) => c == '\n'))
 
     if (useSireumJava.nonEmpty) {
       val pos = content.indexOf("-vm")
@@ -195,28 +195,44 @@ import Phantom._
       return o.size
     }
 
-    var pos = custContains("-Dorg.sireum.home=", content.s)
-    if (pos < content.s.size) { // remove old sireum location
-      content = ops.ISZOps(content.slice(0, pos) ++ content.slice(pos + 1, content.s.size))
+    // check if the ini already has org.sireum.home set to sireumHome.canon.value.
+    // If true then no need to update
+    val sysPropSetAndSame: B =
+      custContains(s"-Dorg.sireum.home=${sireumHome.canon.value}", content.s) != content.s.size
+
+    if(!sysPropSetAndSame) {
+      val pos = custContains("-Dorg.sireum.home=", content.s)
+      if (pos < content.s.size) {
+        // ini did have the sys prop but it's pointing to a different location so remove it
+        content = ops.ISZOps(content.slice(0, pos) ++ content.slice(pos + 1, content.s.size))
+      }
     }
 
-    val phantomAdditions: ISZ[String] =
-      if (useSireumJava.nonEmpty) ISZ[String]("-vm", useSireumJava.get.canon.value)
-      else ISZ[String]() ++ //
-        ISZ("-vmargs", s"-Dorg.sireum.home=${sireumHome.canon.value}")
+    var phantomAdditions: ISZ[String] = ISZ()
 
-    pos = content.indexOf("-vmargs")
-    val modifiedContent: ISZ[String] = content.slice(0, pos) ++
-      phantomAdditions ++
-      (if (pos < content.s.size) content.slice(pos + 1, content.s.size) else ISZ[String]())
+    if (useSireumJava.nonEmpty) {
+      phantomAdditions = phantomAdditions ++ ISZ("-vm", useSireumJava.get.canon.value)
+    }
+    if(!sysPropSetAndSame) {
+      phantomAdditions = phantomAdditions ++ ISZ("-vmargs", s"-Dorg.sireum.home=${sireumHome.canon.value}")
+    }
 
-    osateIni.writeOver(st"${(modifiedContent, "\n")}".render)
+    if(phantomAdditions.nonEmpty) {
+      val pos = content.indexOf("-vmargs")
+      val modifiedContent: ISZ[String] = content.slice(0, pos) ++
+        phantomAdditions ++
+        (if (pos < content.s.size) content.slice(pos + 1, content.s.size) else ISZ[String]())
 
-    val info =
-      st"""Modified ${osateIni.value} to include the following system property:
-          |  ${(phantomAdditions, "\n")}
-          |This is used by the plugins to locate where Sireum is installed.""".render
-    addInfo(info)
+      osateIni.writeOver(st"${(modifiedContent, "\n")}".render)
+
+      val info =
+        st"""Modified ${osateIni.value} to include the following system property:
+            |  ${(phantomAdditions, "\n")}
+
+            |This is used by the plugins to locate where Sireum is installed.""".
+          render
+      addInfo(info)
+    }
 
     return Some(osateExe)
   }
@@ -258,13 +274,13 @@ import Phantom._
   }
 
   def uninstallPlugin(featureId: String, osateExe: Os.Path): Unit = {
-    getProc(getOsateLauncher(osateExe) ++ ISZ[String]("-application", "org.eclipse.equinox.p2.director",
+    getProcJustEcho(getOsateLauncher(osateExe) ++ ISZ[String]("-application", "org.eclipse.equinox.p2.director",
       "-uninstallIU", featureId
     )).at(osateExe.up).runCheck()
   }
 
   def installPlugin(featureId: String, updateSite: String, osateExe: Os.Path): Unit = {
-    getProc(getOsateLauncher(osateExe) ++ ISZ[String]("-application", "org.eclipse.equinox.p2.director",
+    getProcJustEcho(getOsateLauncher(osateExe) ++ ISZ[String]("-application", "org.eclipse.equinox.p2.director",
       "-repository", updateSite, "-installIU", featureId
     )).at(osateExe.up).runCheck()
   }
@@ -300,6 +316,8 @@ import Phantom._
     val mainKey: String = getKey("main")
     val implKey: String = getKey("impl")
     val outputKey: String = getKey("output")
+    val verboseKey: String = getKey("verbose")
+    val verbosePlusKey: String = getKey("verbosePlus")
 
     var args: ISZ[String] = ISZ("hamr", "phantom")
 
@@ -329,9 +347,14 @@ import Phantom._
       ISZ[String]("-data", "@user.home/.sireum", "-application", "org.sireum.aadl.osate.cli") ++ args
     //println(st"${(procArgs, " ")}".render)
 
-    val result: Os.Proc.Result = getProc(procArgs).at(osateDir).run()
+    // always attach a console but maybe refine that in the future by passing
+    // verbose/verbose+ options to osate side
+    var prc: Os.Proc = Os.proc(procArgs).at(osateDir).console
+    if(verbosity == Verbosity.High) {
+      prc = prc.echo
+    }
 
-    return result.exitCode
+    return prc.run().exitCode
   }
 
   def getOsateLauncher(osateExe: Os.Path): ISZ[String] = {
@@ -355,6 +378,17 @@ import Phantom._
   }
 
   def getProc(commands: ISZ[String]): Os.Proc = {
+    val ret: Os.Proc = {
+      verbosity match {
+        case Verbosity.High => Os.proc(commands).console.echo
+        case Verbosity.Low => Os.proc(commands).console
+        case _ => Os.proc(commands)
+      }
+    }
+    return ret
+  }
+
+  def getProcJustEcho(commands: ISZ[String]): Os.Proc = {
     val ret: Os.Proc = {
       verbosity match {
         case Verbosity.High => Os.proc(commands).echo
