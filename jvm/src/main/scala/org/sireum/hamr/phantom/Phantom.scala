@@ -267,15 +267,19 @@ import Phantom._
   }
 
   def isInstalled(featureId: String, osateExe: Os.Path): B = {
+    val sops = ops.StringOps(featureId)
+    val fid: String = if (sops.contains("/")) sops.substring(0, sops.indexOf('/')) else sops.s
     // don't echo this
     val installedPlugins = Os.proc(getOsateLauncher(osateExe) ++ ISZ[String]("-application", "org.eclipse.equinox.p2.director",
       "-listInstalledRoots")).at(osateExe.up).runCheck()
-    return ops.StringOps(installedPlugins.out).contains(featureId)
+    return ops.StringOps(installedPlugins.out).contains(fid)
   }
 
   def uninstallPlugin(featureId: String, osateExe: Os.Path): Unit = {
+    val sops = ops.StringOps(featureId)
+    val fid: String = if (sops.contains("/")) sops.substring(0, sops.indexOf('/')) else sops.s
     getProcJustEcho(getOsateLauncher(osateExe) ++ ISZ[String]("-application", "org.eclipse.equinox.p2.director",
-      "-uninstallIU", featureId
+      "-uninstallIU", fid
     )).at(osateExe.up).runCheck()
   }
 
