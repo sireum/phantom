@@ -47,8 +47,13 @@ import Phantom._
 @datatype class Phantom(val osateVersion: String, val osateOpt: Option[Os.Path], val verbosity: Verbosity.Type, sireumHome: Os.Path) {
   val osateUrlPrefix: String = s"https://osate-build.sei.cmu.edu/download/osate/stable/$osateVersion/products/"
   val osateBundle: String = Os.kind match {
-    case Os.Kind.Mac => s"osate2-$osateVersion-macosx.cocoa.x86_64.tar.gz"
+    case Os.Kind.Mac =>
+      if (Os.prop("os.arch").get == "aarch64")
+        s"osate2-$osateVersion-macosx.cocoa.aarch64.tar.gz"
+      else
+        s"osate2-$osateVersion-macosx.cocoa.x86_64.tar.gz"
     case Os.Kind.Linux => s"osate2-$osateVersion-linux.gtk.x86_64.tar.gz"
+    case Os.Kind.LinuxArm => s"osate2-$osateVersion-linux.gtk.aarch64.tar.gz"
     case Os.Kind.Win => s"osate2-$osateVersion-win32.win32.x86_64.zip"
     case _ => halt("Infeasible")
   }
