@@ -233,7 +233,6 @@ import Phantom._
       val info =
         st"""Modified ${osateIni.value} to include the following system property:
             |  ${(phantomAdditions, "\n")}
-
             |This is used by the plugins to locate where Sireum is installed.""".
           render
       addInfo(info)
