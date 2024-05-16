@@ -154,24 +154,28 @@ import Phantom._
       case _ => "osate"
     }
 
-    val (osateExe, osateIni, useSireumJava): (Os.Path, Os.Path, Option[Os.Path]) = if (Os.isMac) {
-      val output = proc"xattr $osateDir".runCheck().out // don't echo
-      if(ops.StringOps(output).contains("com.apple.quarantine")) {
-        proc"xattr -rd com.apple.quarantine $osateDir".runCheck() // don't echo
-        addInfo(s"Removed quarantine attribute from $osateDir")
-      }
+    val (osateExe, osateIni, useSireumJava): (Os.Path, Os.Path, Option[Os.Path]) =
+      Os.kind match {
+        case Os.Kind.Mac =>
+          val output = proc"xattr $osateDir".runCheck().out // don't echo
+          if (ops.StringOps(output).contains("com.apple.quarantine")) {
+            proc"xattr -rd com.apple.quarantine $osateDir".runCheck() // don't echo
+            addInfo(s"Removed quarantine attribute from $osateDir")
+          }
 
-      val java: Option[Os.Path] = getJava(osateDir / "Contents" / "Eclipse", "mac")
-      // NOTE: only the app name is changed to fmide.app on Mac, the osate exe and osate.ini cannot be renamed
-      (osateDir / "Contents" / "MacOS" / "osate", osateDir / "Contents" / "Eclipse" / "osate.ini", java)
-    } else if (Os.isLinux) {
-      (osateDir / brand, osateDir / s"$brand.ini", getJava(osateDir, "linux"))
-    } else if (Os.isWin) {
-      (osateDir / s"$brand.exe", osateDir / s"$brand.ini", getJava(osateDir, "win"))
-    } else {
-      addError("Phantom only supports macOS, Linux, or Windows")
-      return None()
-    }
+          val java: Option[Os.Path] = getJava(osateDir / "Contents" / "Eclipse", "mac")
+          // NOTE: only the app name is changed to fmide.app on Mac, the osate exe and osate.ini cannot be renamed
+          (osateDir / "Contents" / "MacOS" / "osate", osateDir / "Contents" / "Eclipse" / "osate.ini", java)
+        case Os.Kind.Linux =>
+          (osateDir / brand, osateDir / s"$brand.ini", getJava(osateDir, "linux"))
+        case Os.Kind.LinuxArm =>
+          (osateDir / brand, osateDir / s"$brand.ini", getJava(osateDir, "linux/arm"))
+        case Os.Kind.Win =>
+          (osateDir / s"$brand.exe", osateDir / s"$brand.ini", getJava(osateDir, "win"))
+        case _ =>
+          addError("Phantom only supports macOS, macOS ARM, Linux, Linux ARM, or Windows")
+          return None()
+      }
 
     for (p <- ISZ(osateExe, osateIni, sireumHome / "bin" / "sireum.jar") if !p.exists) {
       addError(s"${p.canon.value} does not exist. This needs to be resolved before proceeding")
@@ -205,7 +209,7 @@ import Phantom._
     val sysPropSetAndSame: B =
       custContains(s"-Dorg.sireum.home=${sireumHome.canon.value}", content.s) != content.s.size
 
-    if(!sysPropSetAndSame) {
+    if (!sysPropSetAndSame) {
       val pos = custContains("-Dorg.sireum.home=", content.s)
       if (pos < content.s.size) {
         // ini did have the sys prop but it's pointing to a different location so remove it
@@ -218,11 +222,11 @@ import Phantom._
     if (useSireumJava.nonEmpty) {
       phantomAdditions = phantomAdditions ++ ISZ("-vm", useSireumJava.get.canon.value)
     }
-    if(!sysPropSetAndSame) {
+    if (!sysPropSetAndSame) {
       phantomAdditions = phantomAdditions ++ ISZ("-vmargs", s"-Dorg.sireum.home=${sireumHome.canon.value}")
     }
 
-    if(phantomAdditions.nonEmpty) {
+    if (phantomAdditions.nonEmpty) {
       val pos = content.indexOf("-vmargs")
       val modifiedContent: ISZ[String] = content.slice(0, pos) ++
         phantomAdditions ++
@@ -358,7 +362,7 @@ import Phantom._
     // always attach a console but maybe refine that in the future by passing
     // verbose/verbose+ options to osate side
     var prc: Os.Proc = Os.proc(procArgs).at(osateDir).console
-    if(verbosity == Verbosity.High) {
+    if (verbosity == Verbosity.High) {
       prc = prc.echo
     }
 
