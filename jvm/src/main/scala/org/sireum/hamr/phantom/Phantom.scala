@@ -226,10 +226,10 @@ import Phantom._
     }
 
     if (phantomAdditions.nonEmpty) {
-      val pos = content.indexOf("-vmargs")
-      val modifiedContent: ISZ[String] = content.slice(0, pos) ++
+      val posa = content.indexOf("-vmargs")
+      val modifiedContent: ISZ[String] = content.slice(0, posa) ++
         phantomAdditions ++
-        (if (pos < content.s.size) content.slice(pos + 1, content.s.size) else ISZ[String]())
+        (if (posa < content.s.size) content.slice(posa + 1, content.s.size) else ISZ[String]())
 
       osateIni.writeOver(st"${(modifiedContent, "\n")}".render)
 
