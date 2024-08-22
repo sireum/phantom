@@ -44,7 +44,12 @@ object Phantom {
 
 import Phantom._
 
-@datatype class Phantom(val osateVersion: String, val osateOpt: Option[Os.Path], val verbosity: Verbosity.Type, sireumHome: Os.Path) {
+@datatype class Phantom(val osateVersion: String, val osateOpt: Option[Os.Path], val verbosity: Verbosity.Type,
+                        runtimesireumHome: Os.Path, altSireumHome: Option[Os.Path]) {
+  val sireumHome: Os.Path =
+    if (altSireumHome.nonEmpty) altSireumHome.get
+    else runtimesireumHome
+
   val osateUrlPrefix: String = s"https://osate-build.sei.cmu.edu/download/osate/stable/$osateVersion/products/"
   val osateBundle: String = Os.kind match {
     case Os.Kind.Mac =>
@@ -204,26 +209,20 @@ import Phantom._
       return o.size
     }
 
-    // check if the ini already has org.sireum.home set to sireumHome.canon.value.
-    // If true then no need to update
-    val sysPropSetAndSame: B =
-      custContains(s"-Dorg.sireum.home=${sireumHome.canon.value}", content.s) != content.s.size
-
-    if (!sysPropSetAndSame) {
-      val pos = custContains("-Dorg.sireum.home=", content.s)
-      if (pos < content.s.size) {
-        // ini did have the sys prop but it's pointing to a different location so remove it
-        content = ops.ISZOps(content.slice(0, pos) ++ content.slice(pos + 1, content.s.size))
-      }
-    }
-
     var phantomAdditions: ISZ[String] = ISZ()
+
+    val pos = custContains("-Dorg.sireum.home=", content.s)
+    if (pos >= content.s.size) {
+      // ini didn't have org.sireum.home set
+      phantomAdditions = phantomAdditions ++ ISZ("-vmargs", s"-Dorg.sireum.home=${sireumHome.canon.value}")
+    } else if (altSireumHome.nonEmpty && (altSireumHome.get != runtimesireumHome)) {
+      // ini had org.sireum.home set but a different location was requested
+      content = ops.ISZOps(content.slice(0, pos) ++ content.slice(pos + 1, content.s.size))
+      phantomAdditions = phantomAdditions ++ ISZ("-vmargs", s"-Dorg.sireum.home=${sireumHome.canon.value}")
+    }
 
     if (useSireumJava.nonEmpty) {
       phantomAdditions = phantomAdditions ++ ISZ("-vm", useSireumJava.get.canon.value)
-    }
-    if (!sysPropSetAndSame) {
-      phantomAdditions = phantomAdditions ++ ISZ("-vmargs", s"-Dorg.sireum.home=${sireumHome.canon.value}")
     }
 
     if (phantomAdditions.nonEmpty) {

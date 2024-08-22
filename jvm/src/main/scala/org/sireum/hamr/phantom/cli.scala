@@ -36,7 +36,7 @@ object cli {
   val tqs: String = "\"\"\""
   val usage : String =
     st"""$${st$tqs
-        ||    phantom --update [--osate <path>] [--features <config>]
+        ||    phantom --update [--osate <path>] [--features <config>] [--sireum-home <path>]
         ||
         ||      Just update/install features
         ||
@@ -64,7 +64,7 @@ object cli {
       ),
       Opt(name = "mode", longKey = "mode", shortKey = Some('m'),
         tpe = Type.Choice(name = "phantomMode", sep = None(), elements = ISZ("json", "json_compact", "msgpack")),
-        description = "Serialization method"
+        description = "AADL model serialization method"
       ),
       Opt(name = "output", longKey = "output-file", shortKey = Some('f'),
         tpe = Type.Path(multiple = F, default = None()),
@@ -97,6 +97,10 @@ object cli {
         Opt(name = "version", longKey = "version", shortKey = None(),
           tpe = Type.Str(sep = None(), default = Some("2.14.0-vfinal")),
           description = "OSATE version"
+        ),
+        Opt(name = "sireum", longKey = "sireum-home", shortKey = None(),
+          tpe = Type.Path(multiple = F, default = None()),
+          description = "Change the location of the Sireum home installation directory that OSATE uses"
         ),
       ))
     )
