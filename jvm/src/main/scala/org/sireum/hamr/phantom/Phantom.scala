@@ -142,12 +142,12 @@ import Phantom._
     def getJava(eclipseDir: Os.Path, platform: String): Option[Os.Path] = {
       // osate 2.10.0+ ships with JustJ and JavaFx plugins and adds an appropriate '-vm'
       // entry to osate.ini.  For older versions of osate use Sireum's Java+Fx
-      val justj = "org.eclipse.justj.openjdk.hotspot.jre.full."
-      val candidates = (eclipseDir / "plugins").list.filter((p: Os.Path) => p.isDir && ops.StringOps(p.name).startsWith(justj))
-      val ret: Option[Os.Path] =
-        if (candidates.nonEmpty) None()
-        else Some(sireumHome / "bin" / platform / "java" / "bin" / s"java${if (Os.isWin) ".exe" else ""}")
-      return ret
+      //val justj = "org.eclipse.justj.openjdk.hotspot.jre.full."
+      //val candidates = (eclipseDir / "plugins").list.filter((p: Os.Path) => p.isDir && ops.StringOps(p.name).startsWith(justj))
+      //val ret: Option[Os.Path] =
+      //  if (candidates.nonEmpty) None()
+      //  else Some(sireumHome / "bin" / platform / "java" / "bin" / s"java${if (Os.isWin) ".exe" else ""}")
+      return Some(sireumHome / "bin" / platform / "java" / "bin" / s"java${if (Os.isWin) ".exe" else ""}")
     }
 
     val brand: String = osateOpt match {
@@ -211,6 +211,10 @@ import Phantom._
 
     var phantomAdditions: ISZ[String] = ISZ()
 
+    if (useSireumJava.nonEmpty) {
+      phantomAdditions = phantomAdditions ++ ISZ("-vm", useSireumJava.get.canon.value)
+    }
+
     val pos = custContains("-Dorg.sireum.home=", content.s)
     if (pos >= content.s.size) {
       // ini didn't have org.sireum.home set
@@ -219,10 +223,6 @@ import Phantom._
       // ini had org.sireum.home set but a different location was requested
       content = ops.ISZOps(content.slice(0, pos) ++ content.slice(pos + 1, content.s.size))
       phantomAdditions = phantomAdditions ++ ISZ("-vmargs", s"-Dorg.sireum.home=${sireumHome.canon.value}")
-    }
-
-    if (useSireumJava.nonEmpty) {
-      phantomAdditions = phantomAdditions ++ ISZ("-vm", useSireumJava.get.canon.value)
     }
 
     if (phantomAdditions.nonEmpty) {
