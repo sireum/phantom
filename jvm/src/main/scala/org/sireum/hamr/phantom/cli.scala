@@ -95,7 +95,7 @@ object cli {
           description = "Plugin features to update/install, each of the form <feature-id>=<repo-url-1>,...,<repo-url-N>. Latest Sireum plugins installed if not provided"
         ),
         Opt(name = "version", longKey = "version", shortKey = None(),
-          tpe = Type.Str(sep = None(), default = Some("2.15.0-vfinal")),
+          tpe = Type.Str(sep = None(), default = Some("2.16.0-vfinal")),
           description = "OSATE version"
         ),
         Opt(name = "sireum", longKey = "sireum-home", shortKey = None(),
