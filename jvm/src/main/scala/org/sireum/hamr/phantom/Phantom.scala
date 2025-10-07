@@ -59,7 +59,9 @@ import Phantom._
         s"osate2-$osateVersion-macosx.cocoa.x86_64.tar.gz"
     case Os.Kind.Linux => s"osate2-$osateVersion-linux.gtk.x86_64.tar.gz"
     case Os.Kind.LinuxArm => s"osate2-$osateVersion-linux.gtk.aarch64.tar.gz"
-    case Os.Kind.Win => s"osate2-$osateVersion-win32.win32.x86_64.zip"
+    case Os.Kind.Win =>
+      if (Os.isWinArm) s"osate2-$osateVersion-win32.win32.aarch64.zip"
+      else s"osate2-$osateVersion-win32.win32.x86_64.zip"
     case _ => halt("Infeasible")
   }
 
@@ -178,7 +180,7 @@ import Phantom._
         case Os.Kind.Win =>
           (osateDir / s"$brand.exe", osateDir / s"$brand.ini", getJava(osateDir, "win"))
         case _ =>
-          addError("Phantom only supports macOS, macOS ARM, Linux, Linux ARM, or Windows")
+          addError("Phantom only supports macOS, macOS ARM, Linux, Linux ARM, Windows, or Windows ARM")
           return None()
       }
 
@@ -378,7 +380,7 @@ import Phantom._
       if (launcherJar.size == 1) {
         val javaLoc = sireumHome / "bin" / "win" / "java" / "bin" / "java.exe"
         // launcher does not have '--launcher.suppressErrors option
-        ret = ISZ[String](javaLoc.value, s"-Dorg.sireum.home=${sireumHome.value}", "-cp", launcherJar(0).string, "org.eclipse.core.launcher.Main", "-nosplash", "-console", "-consoleLog")
+        ret = ISZ[String](javaLoc.value, s"-Dorg.sireum.home=${sireumHome.value}", "-cp", launcherJar(0).string, "org.eclipse.equinox.launcher.Main", "-nosplash", "-console", "-consoleLog")
       }
     }
     return ret
