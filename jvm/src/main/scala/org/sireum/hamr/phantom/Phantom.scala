@@ -137,7 +137,7 @@ import Phantom._
   }
 
   def getOsateExe(): Option[Os.Path] = {
-    if (!plaformCheck() || !installOsate()) {
+    if (!platformCheck() || !installOsate()) {
       return None()
     }
 
@@ -246,7 +246,7 @@ import Phantom._
     return Some(osateExe)
   }
 
-  def plaformCheck(): B = {
+  def platformCheck(): B = {
     Os.kind match {
       case Os.Kind.Win =>
         if (Os.isWinArm) {
