@@ -137,7 +137,7 @@ import Phantom._
   }
 
   def getOsateExe(): Option[Os.Path] = {
-    if (!installOsate()) {
+    if (!plaformCheck() || !installOsate()) {
       return None()
     }
 
@@ -244,6 +244,37 @@ import Phantom._
     }
 
     return Some(osateExe)
+  }
+
+  def plaformCheck(): B = {
+    Os.kind match {
+      case Os.Kind.Win =>
+        if (Os.isWinArm) {
+          val segs = ops.StringOps(osateVersion).split(c => c == '.')
+          if (segs.isEmpty || (segs.size == 1 && segs(0) != "latest")) {
+            addError(s"Invalid OSATE version: ${osateVersion}")
+            return F
+          } else {
+            (Z(segs(0)), Z(segs(1))) match {
+              case (Some(major), Some(minor)) =>
+                if (major <= 2 && minor < 17) {
+                  addError(s"Invalid OSATE version: $osateVersion.  Support for Windows ARM requires OSATE 2.17 or newer")
+                  return F
+                }
+              case _ =>
+                addError(s"Invalid OSATE version: ${osateVersion}")
+                return F
+            }
+          }
+        }
+      case Os.Kind.Linux =>
+      case Os.Kind.LinuxArm =>
+      case Os.Kind.Mac =>
+      case _ =>
+        addError("Phantom only supports macOS, macOS ARM, Linux, Linux ARM, Windows, or Windows ARM")
+        return F
+    }
+    return T
   }
 
   def installOsate(): B = {
